@@ -158,6 +158,25 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
       if (el && el.textContent !== title) el.textContent = title
     }, [title])
 
+    // Global Cmd+A → select all in body (or title if focused)
+    useEffect(() => {
+      function onSelectAll(e: KeyboardEvent) {
+        if (e.key !== "a" || (!e.metaKey && !e.ctrlKey)) return
+        e.preventDefault()
+        const target = document.activeElement
+        const el = (target === titleRef.current ? titleRef.current : bodyRef.current)
+        if (!el) return
+        const range = document.createRange()
+        range.selectNodeContents(el)
+        const sel = window.getSelection()
+        sel?.removeAllRanges()
+        sel?.addRange(range)
+        el.focus()
+      }
+      document.addEventListener("keydown", onSelectAll)
+      return () => document.removeEventListener("keydown", onSelectAll)
+    }, [])
+
     // Image selection + resize
     useEffect(() => {
       const editor = bodyRef.current
@@ -272,11 +291,16 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
             ref={titleRef}
             contentEditable
             suppressContentEditableWarning
+            data-no-format
             onInput={(e) => onTitleChange(e.currentTarget.textContent ?? "")}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault()
                 bodyRef.current?.focus()
+              }
+              // Block all formatting shortcuts in the title
+              if ((e.metaKey || e.ctrlKey) && ["b", "i", "u"].includes(e.key.toLowerCase())) {
+                e.preventDefault()
               }
             }}
             className="w-full overflow-hidden whitespace-nowrap text-4xl font-bold text-foreground outline-none focus:outline-none"
