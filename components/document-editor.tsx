@@ -1,6 +1,8 @@
 "use client"
 
-import { forwardRef, useImperativeHandle, useRef, useState, useEffect } from "react"
+import { forwardRef, useImperativeHandle, useRef, useState, useEffect, useLayoutEffect } from "react"
+import { ExternalLink, Pencil, Unlink } from "lucide-react"
+import { motion, AnimatePresence } from "motion/react"
 
 const IMAGE_STYLES = `
   .img-wrapper {
@@ -98,10 +100,69 @@ interface DocumentEditorProps {
   onTitleChange: (title: string) => void
 }
 
+interface LinkTooltipState {
+  anchor: HTMLAnchorElement
+  x: number
+  y: number
+  editMode: boolean
+  editUrl: string
+  editText: string
+}
+
 export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorProps>(
   ({ title, onTitleChange }, ref) => {
     const [body, setBody] = useState("")
     const bodyRef = useRef<HTMLDivElement>(null)
+    const titleRef = useRef<HTMLDivElement>(null)
+
+    const [linkTooltip, setLinkTooltip] = useState<LinkTooltipState | null>(null)
+    const tooltipHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const linkTooltipRef = useRef<HTMLDivElement>(null)
+    const tooltipViewRef = useRef<HTMLDivElement>(null)
+    const tooltipEditRef = useRef<HTMLDivElement>(null)
+    const tooltipUrlInputRef = useRef<HTMLInputElement>(null)
+    const [tooltipHeight, setTooltipHeight] = useState(0)
+
+    useLayoutEffect(() => {
+      const el = linkTooltip?.editMode ? tooltipEditRef.current : tooltipViewRef.current
+      if (el) setTooltipHeight(el.scrollHeight)
+    }, [linkTooltip?.editMode, !!linkTooltip])
+
+    useEffect(() => {
+      if (linkTooltip?.editMode) tooltipUrlInputRef.current?.focus()
+    }, [linkTooltip?.editMode])
+
+    function scheduleHide() {
+      tooltipHideTimer.current = setTimeout(() => setLinkTooltip(null), 200)
+    }
+    function cancelHide() {
+      if (tooltipHideTimer.current) clearTimeout(tooltipHideTimer.current)
+    }
+
+    function applyTooltipEdit() {
+      if (!linkTooltip) return
+      const { anchor, editUrl, editText } = linkTooltip
+      const raw = editUrl.trim()
+      if (raw) {
+        const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+        anchor.href = url
+        anchor.target = "_blank"
+        anchor.rel = "noopener noreferrer"
+      }
+      if (editText.trim()) anchor.textContent = editText
+      setLinkTooltip(null)
+    }
+
+    function removeTooltipLink() {
+      if (!linkTooltip) return
+      const { anchor } = linkTooltip
+      const parent = anchor.parentNode
+      if (parent) {
+        while (anchor.firstChild) parent.insertBefore(anchor.firstChild, anchor)
+        parent.removeChild(anchor)
+      }
+      setLinkTooltip(null)
+    }
 
     function refreshBody() {
       const editor = bodyRef.current
@@ -109,7 +170,6 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
       const html = editor.innerHTML.trim()
       setBody(html === "" || html === "<br>" ? "" : "_")
     }
-    const titleRef = useRef<HTMLDivElement>(null)
 
     useImperativeHandle(ref, () => ({
       insertImage(src: string, savedRange: Range | null) {
@@ -118,11 +178,9 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
 
         editor.focus()
 
-        // Restore saved selection or collapse to end
         const sel = window.getSelection()
         if (sel) {
           sel.removeAllRanges()
-          // Only use savedRange if it's actually inside the editor
           const validRange = savedRange && editor.contains(savedRange.commonAncestorContainer)
             ? savedRange
             : null
@@ -141,7 +199,6 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
         if (range) {
           range.deleteContents()
           range.insertNode(wrapper)
-          // Move cursor after image
           range.setStartAfter(wrapper)
           range.collapse(true)
           sel?.removeAllRanges()
@@ -177,14 +234,23 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
       return () => document.removeEventListener("keydown", onSelectAll)
     }, [])
 
-    // Image selection + resize
+    // Image selection + resize, link click + hover
     useEffect(() => {
       const editor = bodyRef.current
       if (!editor) return
 
-      // Click: select/deselect images
       function onEditorClick(e: MouseEvent) {
         const target = e.target as HTMLElement
+
+        // Navigate links
+        const anchor = target.closest("a[href]") as HTMLAnchorElement | null
+        if (anchor) {
+          e.preventDefault()
+          window.open(anchor.href, "_blank", "noopener,noreferrer")
+          return
+        }
+
+        // Image selection
         document.querySelectorAll(".img-wrapper.img-selected").forEach((w) =>
           w.classList.remove("img-selected")
         )
@@ -196,7 +262,7 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
       }
       editor.addEventListener("click", onEditorClick)
 
-      // Click outside editor: deselect
+      // Click outside editor: deselect images
       function onDocClick(e: MouseEvent) {
         if (!editor.contains(e.target as Node)) {
           document.querySelectorAll(".img-wrapper.img-selected").forEach((w) =>
@@ -221,6 +287,30 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
       }
       editor.addEventListener("keydown", onKeyDown, true)
       document.addEventListener("keydown", onKeyDown)
+
+      // Link hover tooltip
+      function onLinkMouseOver(e: MouseEvent) {
+        const a = (e.target as HTMLElement).closest("a[href]") as HTMLAnchorElement | null
+        if (!a) return
+        cancelHide()
+        const rect = a.getBoundingClientRect()
+        setLinkTooltip(prev => {
+          if (prev?.anchor === a && prev.editMode) return prev
+          return {
+            anchor: a,
+            x: rect.left + rect.width / 2,
+            y: rect.top,
+            editMode: false,
+            editUrl: a.getAttribute("href") ?? "",
+            editText: a.textContent ?? "",
+          }
+        })
+      }
+      function onLinkMouseOut(e: MouseEvent) {
+        if ((e.target as HTMLElement).closest("a[href]")) scheduleHide()
+      }
+      editor.addEventListener("mouseover", onLinkMouseOver)
+      editor.addEventListener("mouseout", onLinkMouseOut)
 
       // Resize on handle drag
       let resizeState: {
@@ -267,6 +357,8 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
         document.removeEventListener("click", onDocClick)
         editor.removeEventListener("keydown", onKeyDown, true)
         document.removeEventListener("keydown", onKeyDown)
+        editor.removeEventListener("mouseover", onLinkMouseOver)
+        editor.removeEventListener("mouseout", onLinkMouseOut)
         document.removeEventListener("mousedown", onMouseDown)
         document.removeEventListener("mousemove", onMouseMove)
         document.removeEventListener("mouseup", onMouseUp)
@@ -298,7 +390,6 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
                 e.preventDefault()
                 bodyRef.current?.focus()
               }
-              // Block all formatting shortcuts in the title
               if ((e.metaKey || e.ctrlKey) && ["b", "i", "u"].includes(e.key.toLowerCase())) {
                 e.preventDefault()
               }
@@ -326,6 +417,119 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
             className="w-full text-sm leading-relaxed text-foreground outline-none focus:outline-none"
           />
         </div>
+
+        {/* Link hover tooltip */}
+        <AnimatePresence>
+        {linkTooltip && (
+          <motion.div
+            ref={linkTooltipRef}
+            initial={{ opacity: 0, scale: 0.85, filter: "blur(4px)" }}
+            animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+            exit={{ opacity: 0, scale: 0.85, filter: "blur(4px)" }}
+            transition={{ type: "spring", duration: 0.15, bounce: 0 }}
+            onMouseEnter={cancelHide}
+            onMouseLeave={scheduleHide}
+            style={{
+              position: "fixed",
+              left: linkTooltip.x,
+              top: linkTooltip.y - 8,
+              translateX: "-50%",
+              translateY: "-100%",
+              transformOrigin: "bottom center",
+              zIndex: 50,
+            }}
+            className="overflow-hidden rounded-lg border border-white/10 bg-black shadow-md text-xs"
+          >
+            {/* Height-animated container */}
+            <motion.div
+              initial={false}
+              animate={{ height: tooltipHeight }}
+              transition={{ type: "spring", stiffness: 600, damping: 40 }}
+              className="relative min-w-40 max-w-64"
+            >
+              {/* View panel — always in DOM, fades out when edit is active */}
+              <motion.div
+                ref={tooltipViewRef}
+                animate={{ opacity: linkTooltip.editMode ? 0 : 1, scale: linkTooltip.editMode ? 0.95 : 1, filter: linkTooltip.editMode ? "blur(4px)" : "blur(0px)", pointerEvents: linkTooltip.editMode ? "none" : "auto" }}
+                transition={{ duration: 0.15 }}
+                className="absolute inset-x-0 bottom-0 flex items-center gap-1 px-2 py-1.5"
+              >
+                <span className="flex-1 truncate text-white/60">
+                  {linkTooltip.editUrl.replace(/^https?:\/\//, "")}
+                </span>
+                <button
+                  title="Open link"
+                  onClick={() => window.open(linkTooltip.anchor.href, "_blank", "noopener,noreferrer")}
+                  className="shrink-0 cursor-pointer rounded p-0.5 text-white/60 hover:text-white transition-colors"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                </button>
+                <button
+                  title="Edit"
+                  onClick={() => setLinkTooltip(t => t ? { ...t, editMode: true } : t)}
+                  className="shrink-0 cursor-pointer rounded p-0.5 text-white/60 hover:text-white transition-colors"
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+                <button
+                  title="Remove link"
+                  onClick={removeTooltipLink}
+                  className="shrink-0 cursor-pointer rounded p-0.5 text-white/60 hover:text-white transition-colors"
+                >
+                  <Unlink className="h-3 w-3" />
+                </button>
+              </motion.div>
+
+              {/* Edit panel — always in DOM, fades in when edit is active */}
+              <motion.div
+                ref={tooltipEditRef}
+                initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
+                animate={{ opacity: linkTooltip.editMode ? 1 : 0, scale: linkTooltip.editMode ? 1 : 0.95, filter: linkTooltip.editMode ? "blur(0px)" : "blur(4px)", pointerEvents: linkTooltip.editMode ? "auto" : "none" }}
+                transition={{ duration: 0.15 }}
+                className="absolute inset-x-0 bottom-0 flex flex-col gap-1.5 px-2 py-1.5"
+              >
+                <label className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-white/40">URL</span>
+                  <input
+                    ref={tooltipUrlInputRef}
+                    type="url"
+                    value={linkTooltip.editUrl}
+                    onChange={(e) => setLinkTooltip(t => t ? { ...t, editUrl: e.target.value } : t)}
+                    onKeyDown={(e) => { if (e.key === "Enter") applyTooltipEdit(); if (e.key === "Escape") setLinkTooltip(null) }}
+                    placeholder="https://"
+                    className="w-full rounded border border-white/20 bg-white/10 px-2 py-1 text-xs text-white placeholder:text-white/40 outline-none focus:border-white/50 transition-colors"
+                  />
+                </label>
+                <label className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-white/40">Text</span>
+                  <input
+                    type="text"
+                    value={linkTooltip.editText}
+                    onChange={(e) => setLinkTooltip(t => t ? { ...t, editText: e.target.value } : t)}
+                    onKeyDown={(e) => { if (e.key === "Enter") applyTooltipEdit(); if (e.key === "Escape") setLinkTooltip(null) }}
+                    placeholder="Link text"
+                    className="w-full rounded border border-white/20 bg-white/10 px-2 py-1 text-xs text-white placeholder:text-white/40 outline-none focus:border-white/50 transition-colors"
+                  />
+                </label>
+                <div className="flex gap-1">
+                  <button
+                    onClick={applyTooltipEdit}
+                    className="flex-1 cursor-pointer rounded bg-white py-1 text-xs font-medium text-black hover:opacity-90 transition-opacity"
+                  >
+                    Apply
+                  </button>
+                  <button
+                    onClick={() => setLinkTooltip(t => t ? { ...t, editMode: false } : t)}
+                    className="flex-1 cursor-pointer rounded bg-white/10 py-1 text-xs text-white/60 hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
+        </AnimatePresence>
       </div>
     )
   }

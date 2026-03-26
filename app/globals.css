@@ -123,6 +123,8 @@
     @apply bg-background text-foreground;
   }
   [contenteditable] a {
-    @apply text-foreground underline underline-offset-2 decoration-foreground/40 hover:decoration-foreground transition-colors cursor-pointer;
+    @apply opacity-60 underline underline-offset-2 hover:opacity-90 transition-opacity cursor-pointer;
+    text-decoration-thickness: 1.3px;
+    text-decoration-skip-ink: auto;
   }
 }
