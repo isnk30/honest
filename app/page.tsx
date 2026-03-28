@@ -1,118 +1,295 @@
 "use client"
 
-import { useRef, useState, useEffect, useCallback } from "react"
-import { Topbar } from "@/components/topbar"
-import { Sidebar } from "@/components/sidebar"
-import { DocumentEditor, type DocumentEditorHandle } from "@/components/document-editor"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import { toast } from "sonner"
+import { format, isToday, isYesterday } from "date-fns"
+import { Folder, Plus, User, Search } from "lucide-react"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import { FileText } from "lucide-react"
+
+type Doc = {
+  id: string
+  title: string
+  updated_at: string
+  folder_id: string | null
+}
+
+type FolderItem = {
+  id: string
+  name: string
+  created_at: string
+}
+
+function formatDate(dateStr: string) {
+  const date = new Date(dateStr)
+  if (isToday(date)) return "Today"
+  if (isYesterday(date)) return "Yesterday"
+  return format(date, "MMM d")
+}
+
+function DocCard({ doc, onClick }: { doc: Doc; onClick: () => void }) {
+  return (
+    <div
+      onClick={onClick}
+      className="cursor-pointer rounded-xl border border-border bg-background overflow-hidden hover:border-foreground/20 hover:shadow-sm transition-all group"
+    >
+      <div className="bg-muted/40 p-5 h-[128px] flex flex-col gap-2.5">
+        <div className="h-1.5 rounded-full bg-foreground/10 w-2/3" />
+        <div className="h-1.5 rounded-full bg-foreground/8 w-full" />
+        <div className="h-1.5 rounded-full bg-foreground/8 w-5/6" />
+        <div className="h-1.5 rounded-full bg-foreground/6 w-3/4" />
+        <div className="h-1.5 rounded-full bg-foreground/5 w-1/2" />
+      </div>
+      <div className="px-4 py-3 border-t border-border">
+        <p className="text-sm font-medium text-foreground truncate">{doc.title || "Untitled"}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{formatDate(doc.updated_at)}</p>
+      </div>
+    </div>
+  )
+}
+
+function NewDocCard({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="rounded-xl border-2 border-dashed border-border hover:border-foreground/25 hover:bg-muted/20 transition-all flex flex-col items-center justify-center gap-2 h-[195px] w-full text-muted-foreground hover:text-foreground/50 cursor-pointer"
+    >
+      <Plus className="h-4 w-4" />
+      <span className="text-sm">{label}</span>
+    </button>
+  )
+}
 
 export default function Home() {
-  const [docName, setDocName] = useState("")
+  const router = useRouter()
+  const [docs, setDocs] = useState<Doc[]>([])
+  const [folders, setFolders] = useState<FolderItem[]>([])
   const [userAvatar, setUserAvatar] = useState<string | undefined>()
-  const editorRef = useRef<DocumentEditorHandle>(null)
-  const docIdRef = useRef<string | null>(null)
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const docNameRef = useRef("")
+  const [userName, setUserName] = useState("")
+  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState("")
+  const [commandOpen, setCommandOpen] = useState(false)
 
-  // Keep ref in sync for use inside closures
-  useEffect(() => { docNameRef.current = docName }, [docName])
+  useEffect(() => { load() }, [])
 
-  // Load user + document on mount
-  useEffect(() => {
-    async function load() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      setUserAvatar(user.user_metadata?.avatar_url)
-
-      const { data } = await supabase
-        .from("documents")
-        .select("*")
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (data) {
-        docIdRef.current = data.id
-        setDocName(data.title)
-        editorRef.current?.setContent(data.content)
-      } else {
-        const { data: newDoc } = await supabase
-          .from("documents")
-          .insert({ user_id: user.id, title: "", content: "" })
-          .select()
-          .single()
-        if (newDoc) docIdRef.current = newDoc.id
-      }
-    }
-    load()
-  }, [])
-
-  const saveNow = useCallback(async (title: string, content: string, silent = false) => {
-    if (!docIdRef.current) return
-    const supabase = createClient()
-    const { error } = await supabase
-      .from("documents")
-      .update({ title, content, updated_at: new Date().toISOString() })
-      .eq("id", docIdRef.current)
-    if (!silent) {
-      if (error) toast.error("Failed to save")
-      else toast.success("Saved")
-    }
-  }, [])
-
-  const scheduleAutoSave = useCallback((title: string, content: string) => {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = setTimeout(() => saveNow(title, content, true), 1500)
-  }, [saveNow])
-
-  // Cmd+S manual save
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "s" && (e.metaKey || e.ctrlKey)) {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
-        const content = editorRef.current?.getContent() ?? ""
-        saveNow(docNameRef.current, content)
+        setCommandOpen(prev => !prev)
       }
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [saveNow])
+  }, [])
 
-  function handleTitleChange(name: string) {
-    setDocName(name)
-    const content = editorRef.current?.getContent() ?? ""
-    scheduleAutoSave(name, content)
+  async function load() {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    setUserAvatar(user.user_metadata?.avatar_url)
+    const firstName = ((user.user_metadata?.full_name as string) ?? "").split(" ")[0]
+    setUserName(firstName)
+
+    const [{ data: docsData }, { data: foldersData }] = await Promise.all([
+      supabase.from("documents").select("id, title, updated_at, folder_id").order("updated_at", { ascending: false }),
+      supabase.from("folders").select("*").order("created_at", { ascending: true }),
+    ])
+    setDocs(docsData ?? [])
+    setFolders(foldersData ?? [])
   }
 
-  function handleContentChange(html: string) {
-    scheduleAutoSave(docNameRef.current, html)
+  async function createDoc(folderId: string | null = null) {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase
+      .from("documents")
+      .insert({ user_id: user.id, title: "", content: "", folder_id: folderId })
+      .select()
+      .single()
+    if (data) router.push(`/doc/${data.id}`)
   }
+
+  async function createFolder() {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase
+      .from("folders")
+      .insert({ user_id: user.id, name: "Untitled Folder" })
+      .select()
+      .single()
+    if (data) {
+      setFolders(prev => [...prev, data])
+      setRenamingFolderId(data.id)
+      setRenameValue("Untitled Folder")
+    }
+  }
+
+  async function commitFolderRename(id: string) {
+    const name = renameValue.trim() || "Untitled Folder"
+    const supabase = createClient()
+    await supabase.from("folders").update({ name }).eq("id", id)
+    setFolders(prev => prev.map(f => f.id === id ? { ...f, name } : f))
+    setRenamingFolderId(null)
+  }
+
+  const now = new Date()
+  const hour = now.getHours()
+  const timeOfDay = hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening"
+  const dateStr = format(now, "EEEE, MMMM d · h:mm") + (hour < 12 ? "AM" : "PM")
+  const unfiledDocs = docs.filter(d => !d.folder_id)
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background font-sans">
-      <div className="shrink-0">
-        <Topbar
-          docName={docName}
-          onDocNameChange={handleTitleChange}
-          userAvatar={userAvatar}
+      {/* Header */}
+      <header className="relative flex h-12 w-full shrink-0 items-center px-4 bg-background">
+        <img
+          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/hoenst%20logo-gpNSSpWBxxqq17ZGgKgLhGcM8BfrOo.png"
+          alt="Honest"
+          className="h-6 w-6 object-contain dark:invert"
         />
-      </div>
-      <div className="relative flex flex-1 overflow-hidden">
-        <Sidebar
-          onInsertImage={(src, range) => editorRef.current?.insertImage(src, range)}
-        />
-        <main className="flex flex-1 justify-center overflow-y-auto px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <DocumentEditor
-            ref={editorRef}
-            title={docName}
-            onTitleChange={handleTitleChange}
-            onContentChange={handleContentChange}
-          />
-        </main>
-      </div>
+        <div className="flex-1" />
+
+        {/* Centered search trigger */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <button
+            onClick={() => setCommandOpen(true)}
+            className="group pointer-events-auto flex h-7 w-fit cursor-pointer items-center gap-2 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted/60"
+          >
+            <Search className="h-3.5 w-3.5 shrink-0" />
+            <span>Search</span>
+            <span className="w-2 transition-all duration-200 group-hover:w-8" />
+            <kbd className="hidden items-center gap-0.5 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] sm:flex">
+              <span className="text-[13px]">⌘</span><span>K</span>
+            </kbd>
+          </button>
+        </div>
+
+        <Avatar className="h-7 w-7 cursor-pointer transition-opacity hover:opacity-70">
+          <AvatarImage src={userAvatar} alt="Profile" />
+          <AvatarFallback className="bg-muted text-xs font-medium text-muted-foreground">
+            <User className="h-3.5 w-3.5" />
+          </AvatarFallback>
+        </Avatar>
+      </header>
+
+      {/* Command palette */}
+      <CommandDialog open={commandOpen} onOpenChange={setCommandOpen} title="Search" description="Search documents">
+        <CommandInput placeholder="Search documents…" />
+        <CommandList>
+          <CommandEmpty>No results found.</CommandEmpty>
+          <CommandGroup heading="Documents">
+            {docs.map(doc => (
+              <CommandItem
+                key={doc.id}
+                onSelect={() => { router.push(`/doc/${doc.id}`); setCommandOpen(false) }}
+              >
+                <FileText />
+                <span>{doc.title || "Untitled"}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
+      </CommandDialog>
+
+      {/* Content */}
+      <main className="flex-1 overflow-y-auto px-8 py-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="max-w-5xl mx-auto">
+
+          {/* Greeting */}
+          <div className="mb-10">
+            <p className="text-sm text-muted-foreground mb-1">{dateStr}</p>
+            <h1 className="text-2xl font-semibold text-foreground">
+              Good {timeOfDay}{userName ? `, ${userName}` : ""}.
+            </h1>
+          </div>
+
+          {/* Actions row */}
+          <div className="flex items-center justify-between mb-6">
+            <p className="text-sm text-muted-foreground">
+              {docs.length} {docs.length === 1 ? "page" : "pages"}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={createFolder}
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors cursor-pointer"
+              >
+                New Folder <span className="text-muted-foreground">+</span>
+              </button>
+              <button
+                onClick={() => createDoc()}
+                className="flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-1.5 text-sm font-medium text-background hover:opacity-80 transition-opacity cursor-pointer"
+              >
+                New Page <span>+</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Unfiled docs */}
+          {(unfiledDocs.length > 0 || true) && (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(185px,1fr))] gap-4 mb-10">
+              {unfiledDocs.map(doc => (
+                <DocCard key={doc.id} doc={doc} onClick={() => router.push(`/doc/${doc.id}`)} />
+              ))}
+              <NewDocCard label="New Unfiled Doc" onClick={() => createDoc()} />
+            </div>
+          )}
+
+          {/* Folder sections */}
+          {folders.map(folder => {
+            const folderDocs = docs.filter(d => d.folder_id === folder.id)
+            return (
+              <div key={folder.id} className="mb-10">
+                <div className="flex items-center gap-1.5 mb-4">
+                  <Folder className="h-3.5 w-3.5 text-muted-foreground" />
+                  {renamingFolderId === folder.id ? (
+                    <input
+                      autoFocus
+                      value={renameValue}
+                      onChange={e => setRenameValue(e.target.value)}
+                      onBlur={() => commitFolderRename(folder.id)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") commitFolderRename(folder.id)
+                        if (e.key === "Escape") setRenamingFolderId(null)
+                      }}
+                      className="text-sm font-medium bg-transparent outline-none border-b border-foreground/30 focus:border-foreground transition-colors"
+                    />
+                  ) : (
+                    <button
+                      onClick={() => { setRenamingFolderId(folder.id); setRenameValue(folder.name) }}
+                      className="text-sm font-medium hover:opacity-60 transition-opacity cursor-pointer"
+                    >
+                      {folder.name}
+                    </button>
+                  )}
+                  <span className="text-sm text-muted-foreground">
+                    · {folderDocs.length} {folderDocs.length === 1 ? "page" : "pages"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(185px,1fr))] gap-4">
+                  {folderDocs.map(doc => (
+                    <DocCard key={doc.id} doc={doc} onClick={() => router.push(`/doc/${doc.id}`)} />
+                  ))}
+                  <NewDocCard label={`New in ${folder.name}`} onClick={() => createDoc(folder.id)} />
+                </div>
+              </div>
+            )
+          })}
+
+        </div>
+      </main>
     </div>
   )
 }

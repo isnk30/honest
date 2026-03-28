@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { ChevronRight, Star, MoreHorizontal, Search, UserRoundPlus, User, FileText, FolderOpen, Settings, Trash2, Copy, MoveRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -27,9 +28,11 @@ interface TopbarProps {
   docName: string
   onDocNameChange: (name: string) => void
   userAvatar?: string
+  folderName?: string
 }
 
-export function Topbar({ docName, onDocNameChange, userAvatar }: TopbarProps) {
+export function Topbar({ docName, onDocNameChange, userAvatar, folderName }: TopbarProps) {
+  const router = useRouter()
   const [starred, setStarred] = useState(false)
   const [bursting, setBursting] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
@@ -78,7 +81,7 @@ export function Topbar({ docName, onDocNameChange, userAvatar }: TopbarProps) {
     <>
       <header className="relative flex h-12 w-full items-center gap-2 bg-background px-3">
         {/* App icon */}
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center cursor-pointer">
+        <div onClick={() => router.push("/")} className="flex h-7 w-7 shrink-0 items-center justify-center cursor-pointer">
           <img
             src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/hoenst%20logo-gpNSSpWBxxqq17ZGgKgLhGcM8BfrOo.png"
             alt="Honest logo"
@@ -88,10 +91,17 @@ export function Topbar({ docName, onDocNameChange, userAvatar }: TopbarProps) {
 
         {/* Breadcrumb: Folder > Doc */}
         <nav aria-label="Breadcrumb" className="flex items-center gap-0 text-sm">
-          <button className="rounded px-1 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer">
-            Folder name
-          </button>
-          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" aria-hidden="true" />
+          {folderName && (
+            <>
+              <button
+                onClick={() => router.push("/")}
+                className="rounded px-1 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
+              >
+                {folderName}
+              </button>
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" aria-hidden="true" />
+            </>
+          )}
 
           {isRenaming ? (
             <span className="relative inline-flex items-center">
