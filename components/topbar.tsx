@@ -30,9 +30,10 @@ interface TopbarProps {
   userAvatar?: string
   folderName?: string
   onFolderClick?: () => void
+  onDelete?: () => void
 }
 
-export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFolderClick }: TopbarProps) {
+export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFolderClick, onDelete }: TopbarProps) {
   const router = useRouter()
   const [starred, setStarred] = useState(false)
   const [bursting, setBursting] = useState(false)
@@ -222,7 +223,7 @@ export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFol
             <DropdownMenuItem>Duplicate</DropdownMenuItem>
             <DropdownMenuItem>Move to folder</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onDelete}>Delete</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 

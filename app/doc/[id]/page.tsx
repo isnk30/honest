@@ -82,6 +82,12 @@ export default function DocPage() {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [saveNow])
 
+  const deleteDoc = useCallback(async () => {
+    const supabase = createClient()
+    await supabase.from("documents").update({ deleted_at: new Date().toISOString() }).eq("id", docId)
+    router.push("/")
+  }, [docId, router])
+
   const handleTitleChange = useCallback((name: string) => {
     setDocName(name)
     scheduleAutoSave(name, editorRef.current?.getContent() ?? "")
@@ -100,6 +106,7 @@ export default function DocPage() {
           userAvatar={userAvatar}
           folderName={folderName}
           onFolderClick={() => setFolderSidebarOpen(prev => !prev)}
+          onDelete={deleteDoc}
         />
       </div>
       <AnimatePresence>
