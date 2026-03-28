@@ -1,6 +1,6 @@
 "use client"
 
-import { forwardRef, useImperativeHandle, useRef, useState, useEffect, useLayoutEffect } from "react"
+import { forwardRef, memo, useImperativeHandle, useRef, useState, useEffect, useLayoutEffect } from "react"
 import { ExternalLink, Pencil, Unlink } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 
@@ -112,7 +112,7 @@ interface LinkTooltipState {
   editText: string
 }
 
-export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorProps>(
+export const DocumentEditor = memo(forwardRef<DocumentEditorHandle, DocumentEditorProps>(
   ({ title, onTitleChange, onContentChange }, ref) => {
     const [body, setBody] = useState("")
     const bodyRef = useRef<HTMLDivElement>(null)
@@ -546,6 +546,6 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
       </div>
     )
   }
-)
+))
 
 DocumentEditor.displayName = "DocumentEditor"
