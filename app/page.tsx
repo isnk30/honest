@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { format, isToday, isYesterday } from "date-fns"
-import { Folder, Plus, User, Search } from "lucide-react"
+import { Folder, Plus, User, Search, MoreHorizontal, Trash2 } from "lucide-react"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import {
   CommandDialog,
@@ -14,7 +14,14 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { FileText } from "lucide-react"
+import { toast } from "sonner"
 
 type Doc = {
   id: string
@@ -36,11 +43,11 @@ function formatDate(dateStr: string) {
   return format(date, "MMM d")
 }
 
-function DocCard({ doc, onClick }: { doc: Doc; onClick: () => void }) {
+function DocCard({ doc, onClick, onDelete }: { doc: Doc; onClick: () => void; onDelete: () => void }) {
   return (
     <div
       onClick={onClick}
-      className="cursor-pointer rounded-xl border border-border bg-background overflow-hidden hover:border-foreground/20 hover:shadow-sm transition-all group"
+      className="cursor-pointer rounded-xl border border-border bg-background overflow-hidden hover:border-foreground/20 hover:shadow-sm transition-all group relative"
     >
       <div className="bg-muted/40 p-5 h-[128px] flex flex-col gap-2.5">
         <div className="h-1.5 rounded-full bg-foreground/10 w-2/3" />
@@ -49,9 +56,30 @@ function DocCard({ doc, onClick }: { doc: Doc; onClick: () => void }) {
         <div className="h-1.5 rounded-full bg-foreground/6 w-3/4" />
         <div className="h-1.5 rounded-full bg-foreground/5 w-1/2" />
       </div>
-      <div className="px-4 py-3 border-t border-border">
-        <p className="text-sm font-medium text-foreground truncate">{doc.title || "Untitled"}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">{formatDate(doc.updated_at)}</p>
+      <div className="px-4 py-3 border-t border-border flex items-end justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground truncate">{doc.title || "Untitled"}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{formatDate(doc.updated_at)}</p>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              onClick={e => e.stopPropagation()}
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-muted transition-all cursor-pointer"
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-36">
+            <DropdownMenuItem
+              onClick={e => { e.stopPropagation(); onDelete() }}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   )
@@ -103,7 +131,7 @@ export default function Home() {
     setUserName(firstName)
 
     const [{ data: docsData }, { data: foldersData }] = await Promise.all([
-      supabase.from("documents").select("id, title, updated_at, folder_id").order("updated_at", { ascending: false }),
+      supabase.from("documents").select("id, title, updated_at, folder_id").is("deleted_at", null).order("updated_at", { ascending: false }),
       supabase.from("folders").select("*").order("created_at", { ascending: true }),
     ])
     setDocs(docsData ?? [])
@@ -121,6 +149,13 @@ export default function Home() {
       .select()
       .single()
     if (data) router.push(`/doc/${data.id}`)
+  }
+
+  async function deleteDoc(id: string) {
+    const supabase = createClient()
+    await supabase.from("documents").update({ deleted_at: new Date().toISOString() }).eq("id", id)
+    setDocs(prev => prev.filter(d => d.id !== id))
+    toast.success("Moved to trash")
   }
 
   async function createFolder() {
@@ -179,12 +214,22 @@ export default function Home() {
           </button>
         </div>
 
-        <Avatar className="h-7 w-7 cursor-pointer transition-opacity hover:opacity-70">
-          <AvatarImage src={userAvatar} alt="Profile" />
-          <AvatarFallback className="bg-muted text-xs font-medium text-muted-foreground">
-            <User className="h-3.5 w-3.5" />
-          </AvatarFallback>
-        </Avatar>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Avatar className="h-7 w-7 cursor-pointer transition-opacity hover:opacity-70">
+              <AvatarImage src={userAvatar} alt="Profile" />
+              <AvatarFallback className="bg-muted text-xs font-medium text-muted-foreground">
+                <User className="h-3.5 w-3.5" />
+              </AvatarFallback>
+            </Avatar>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-36">
+            <DropdownMenuItem onClick={() => router.push("/trash")}>
+              <Trash2 className="h-3.5 w-3.5" />
+              Trash
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </header>
 
       {/* Command palette */}
@@ -255,7 +300,7 @@ export default function Home() {
           ) : (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(185px,1fr))] gap-4 mb-10">
               {unfiledDocs.map(doc => (
-                <DocCard key={doc.id} doc={doc} onClick={() => router.push(`/doc/${doc.id}`)} />
+                <DocCard key={doc.id} doc={doc} onClick={() => router.push(`/doc/${doc.id}`)} onDelete={() => deleteDoc(doc.id)} />
               ))}
               <NewDocCard label="New Unfiled Doc" onClick={() => createDoc()} />
             </div>
@@ -294,7 +339,7 @@ export default function Home() {
                 </div>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(185px,1fr))] gap-4">
                   {folderDocs.map(doc => (
-                    <DocCard key={doc.id} doc={doc} onClick={() => router.push(`/doc/${doc.id}`)} />
+                    <DocCard key={doc.id} doc={doc} onClick={() => router.push(`/doc/${doc.id}`)} onDelete={() => deleteDoc(doc.id)} />
                   ))}
                   <NewDocCard label={`New in ${folder.name}`} onClick={() => createDoc(folder.id)} />
                 </div>
