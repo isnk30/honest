@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { format, isToday, isYesterday } from "date-fns"
@@ -78,6 +78,7 @@ export default function Home() {
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState("")
   const [commandOpen, setCommandOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => { load() }, [])
 
@@ -107,6 +108,7 @@ export default function Home() {
     ])
     setDocs(docsData ?? [])
     setFolders(foldersData ?? [])
+    setLoading(false)
   }
 
   async function createDoc(folderId: string | null = null) {
@@ -149,7 +151,7 @@ export default function Home() {
   const hour = now.getHours()
   const timeOfDay = hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening"
   const dateStr = format(now, "EEEE, MMMM d · h:mm") + (hour < 12 ? "AM" : "PM")
-  const unfiledDocs = docs.filter(d => !d.folder_id)
+  const unfiledDocs = useMemo(() => docs.filter(d => !d.folder_id), [docs])
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background font-sans">
@@ -218,27 +220,39 @@ export default function Home() {
 
           {/* Actions row */}
           <div className="flex items-center justify-between mb-6">
-            <p className="text-sm text-muted-foreground">
-              {docs.length} {docs.length === 1 ? "page" : "pages"}
-            </p>
             <div className="flex items-center gap-2">
-              <button
-                onClick={createFolder}
-                className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors cursor-pointer"
-              >
-                New Folder <span className="text-muted-foreground">+</span>
-              </button>
               <button
                 onClick={() => createDoc()}
                 className="flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-1.5 text-sm font-medium text-background hover:opacity-80 transition-opacity cursor-pointer"
               >
                 New Page <span>+</span>
               </button>
+              <button
+                onClick={createFolder}
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors cursor-pointer"
+              >
+                New Folder <span className="text-muted-foreground">+</span>
+              </button>
             </div>
+            <p className="text-sm text-muted-foreground">
+              {docs.length} {docs.length === 1 ? "page" : "pages"}
+            </p>
           </div>
 
           {/* Unfiled docs */}
-          {(unfiledDocs.length > 0 || true) && (
+          {loading ? (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(185px,1fr))] gap-4 mb-10">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="rounded-xl border border-border overflow-hidden animate-pulse">
+                  <div className="bg-muted/40 h-[128px]" />
+                  <div className="px-4 py-3 border-t border-border">
+                    <div className="h-3 rounded-full bg-muted w-2/3 mb-2" />
+                    <div className="h-2.5 rounded-full bg-muted/60 w-1/3" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(185px,1fr))] gap-4 mb-10">
               {unfiledDocs.map(doc => (
                 <DocCard key={doc.id} doc={doc} onClick={() => router.push(`/doc/${doc.id}`)} />
@@ -248,7 +262,7 @@ export default function Home() {
           )}
 
           {/* Folder sections */}
-          {folders.map(folder => {
+          {!loading && folders.map(folder => {
             const folderDocs = docs.filter(d => d.folder_id === folder.id)
             return (
               <div key={folder.id} className="mb-10">

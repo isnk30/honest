@@ -115,6 +115,11 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* Ensure Sonner toast transitions are not overridden */
+[data-sonner-toast] {
+  transition: transform 0.4s, opacity 0.4s, height 0.4s, box-shadow 0.2s !important;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

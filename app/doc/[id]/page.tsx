@@ -36,7 +36,7 @@ export default function DocPage() {
 
       const { data } = await supabase
         .from("documents")
-        .select("*")
+        .select("*, folders(name)")
         .eq("id", docId)
         .single()
 
@@ -47,11 +47,7 @@ export default function DocPage() {
 
       if (data.folder_id) {
         setFolderId(data.folder_id)
-        const { data: folder } = await supabase
-          .from("folders")
-          .select("name")
-          .eq("id", data.folder_id)
-          .single()
+        const folder = data.folders as { name: string } | null
         if (folder) setFolderName(folder.name)
       }
     }
@@ -86,14 +82,14 @@ export default function DocPage() {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [saveNow])
 
-  function handleTitleChange(name: string) {
+  const handleTitleChange = useCallback((name: string) => {
     setDocName(name)
     scheduleAutoSave(name, editorRef.current?.getContent() ?? "")
-  }
+  }, [scheduleAutoSave])
 
-  function handleContentChange(html: string) {
+  const handleContentChange = useCallback((html: string) => {
     scheduleAutoSave(docNameRef.current, html)
-  }
+  }, [scheduleAutoSave])
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background font-sans">
