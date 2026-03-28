@@ -57,9 +57,9 @@ export function FolderSidebar({ folderId, currentDocId }: FolderSidebarProps) {
 
   return (
     <motion.aside
-      initial={{ x: "-110%", opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      exit={{ x: "-110%", opacity: 0 }}
+      initial={{ x: "-110%" }}
+      animate={{ x: 0 }}
+      exit={{ x: "-110%" }}
       transition={{ type: "spring", stiffness: 400, damping: 40 }}
       className="fixed left-3 top-14 bottom-3 w-44 rounded-xl border border-border bg-background shadow-sm flex flex-col z-40 overflow-hidden"
     >
