@@ -4,9 +4,11 @@ import { useRef, useState, useEffect, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Topbar } from "@/components/topbar"
 import { Sidebar } from "@/components/sidebar"
+import { FolderSidebar } from "@/components/folder-sidebar"
 import { DocumentEditor, type DocumentEditorHandle } from "@/components/document-editor"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
+import { AnimatePresence } from "motion/react"
 
 export default function DocPage() {
   const params = useParams()
@@ -15,6 +17,8 @@ export default function DocPage() {
 
   const [docName, setDocName] = useState("")
   const [folderName, setFolderName] = useState<string | undefined>()
+  const [folderId, setFolderId] = useState<string | null>(null)
+  const [folderSidebarOpen, setFolderSidebarOpen] = useState(false)
   const [userAvatar, setUserAvatar] = useState<string | undefined>()
   const editorRef = useRef<DocumentEditorHandle>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -42,6 +46,7 @@ export default function DocPage() {
       editorRef.current?.setContent(data.content)
 
       if (data.folder_id) {
+        setFolderId(data.folder_id)
         const { data: folder } = await supabase
           .from("folders")
           .select("name")
@@ -93,8 +98,20 @@ export default function DocPage() {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background font-sans">
       <div className="shrink-0">
-        <Topbar docName={docName} onDocNameChange={handleTitleChange} userAvatar={userAvatar} folderName={folderName} />
+        <Topbar
+          docName={docName}
+          onDocNameChange={handleTitleChange}
+          userAvatar={userAvatar}
+          folderName={folderName}
+          onFolderClick={() => setFolderSidebarOpen(prev => !prev)}
+        />
       </div>
+      <AnimatePresence>
+        {folderSidebarOpen && folderId && (
+          <FolderSidebar folderId={folderId} currentDocId={docId} />
+        )}
+      </AnimatePresence>
+
       <div className="relative flex flex-1 overflow-hidden">
         <Sidebar onInsertImage={(src, range) => editorRef.current?.insertImage(src, range)} />
         <main className="flex flex-1 justify-center overflow-y-auto px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

@@ -29,9 +29,10 @@ interface TopbarProps {
   onDocNameChange: (name: string) => void
   userAvatar?: string
   folderName?: string
+  onFolderClick?: () => void
 }
 
-export function Topbar({ docName, onDocNameChange, userAvatar, folderName }: TopbarProps) {
+export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFolderClick }: TopbarProps) {
   const router = useRouter()
   const [starred, setStarred] = useState(false)
   const [bursting, setBursting] = useState(false)
@@ -94,7 +95,7 @@ export function Topbar({ docName, onDocNameChange, userAvatar, folderName }: Top
           {folderName && (
             <>
               <button
-                onClick={() => router.push("/")}
+                onClick={() => onFolderClick ? onFolderClick() : router.push("/")}
                 className="rounded px-1 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
               >
                 {folderName}
