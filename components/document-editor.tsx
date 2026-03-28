@@ -93,11 +93,14 @@ function buildImageWrapper(src: string): HTMLElement {
 
 export interface DocumentEditorHandle {
   insertImage: (src: string, savedRange: Range | null) => void
+  getContent: () => string
+  setContent: (html: string) => void
 }
 
 interface DocumentEditorProps {
   title: string
   onTitleChange: (title: string) => void
+  onContentChange?: (html: string) => void
 }
 
 interface LinkTooltipState {
@@ -110,7 +113,7 @@ interface LinkTooltipState {
 }
 
 export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorProps>(
-  ({ title, onTitleChange }, ref) => {
+  ({ title, onTitleChange, onContentChange }, ref) => {
     const [body, setBody] = useState("")
     const bodyRef = useRef<HTMLDivElement>(null)
     const titleRef = useRef<HTMLDivElement>(null)
@@ -169,9 +172,19 @@ export const DocumentEditor = forwardRef<DocumentEditorHandle, DocumentEditorPro
       if (!editor) return
       const html = editor.innerHTML.trim()
       setBody(html === "" || html === "<br>" ? "" : "_")
+      onContentChange?.(html)
     }
 
     useImperativeHandle(ref, () => ({
+      getContent() {
+        return bodyRef.current?.innerHTML ?? ""
+      },
+      setContent(html: string) {
+        if (!bodyRef.current) return
+        bodyRef.current.innerHTML = html
+        const trimmed = html.trim()
+        setBody(trimmed === "" || trimmed === "<br>" ? "" : "_")
+      },
       insertImage(src: string, savedRange: Range | null) {
         const editor = bodyRef.current
         if (!editor) return

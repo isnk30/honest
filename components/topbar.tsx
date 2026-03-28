@@ -26,9 +26,10 @@ import { cn } from "@/lib/utils"
 interface TopbarProps {
   docName: string
   onDocNameChange: (name: string) => void
+  userAvatar?: string
 }
 
-export function Topbar({ docName, onDocNameChange }: TopbarProps) {
+export function Topbar({ docName, onDocNameChange, userAvatar }: TopbarProps) {
   const [starred, setStarred] = useState(false)
   const [bursting, setBursting] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
@@ -227,7 +228,7 @@ export function Topbar({ docName, onDocNameChange }: TopbarProps) {
 
         {/* Profile picture */}
         <Avatar className="h-7 w-7 cursor-pointer transition-opacity hover:opacity-50">
-          <AvatarImage src="/avatar.jpg" alt="Profile picture" />
+          <AvatarImage src={userAvatar ?? "/avatar.jpg"} alt="Profile picture" />
           <AvatarFallback className="bg-muted text-xs font-medium text-muted-foreground">
             <User className="h-3.5 w-3.5" />
           </AvatarFallback>
