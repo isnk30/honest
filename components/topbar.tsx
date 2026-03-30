@@ -97,7 +97,7 @@ export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFol
             <>
               <button
                 onClick={() => onFolderClick ? onFolderClick() : router.push("/")}
-                className="rounded px-1 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
+                className="px-1 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
               >
                 {folderName}
               </button>
@@ -107,7 +107,7 @@ export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFol
 
           {isRenaming ? (
             <span className="relative inline-flex items-center">
-              <span aria-hidden="true" className="invisible h-7 whitespace-pre rounded-md px-2 text-sm font-medium">
+              <span aria-hidden="true" className="invisible h-7 whitespace-pre px-2 text-sm font-medium">
                 {renameValue || "    "}
               </span>
               <input
@@ -116,7 +116,7 @@ export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFol
                 onChange={(e) => setRenameValue(e.target.value)}
                 onBlur={commitRename}
                 onKeyDown={handleRenameKeyDown}
-                className="absolute inset-0 h-full w-full rounded-md bg-muted px-2 text-sm font-medium text-foreground outline-none"
+                className="absolute inset-0 h-full w-full bg-muted px-2 text-sm font-medium text-foreground outline-none"
                 aria-label="Rename document"
               />
             </span>
@@ -126,7 +126,7 @@ export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFol
               onMouseEnter={() => setRenameHovered(true)}
               onMouseLeave={() => setRenameHovered(false)}
               className={cn(
-                "h-7 cursor-pointer rounded-md px-2 text-sm font-medium text-foreground outline-none transition-colors duration-150",
+                "h-7 cursor-pointer px-2 text-sm font-medium text-foreground outline-none transition-colors duration-150",
                 renameHovered ? "bg-muted/60" : "bg-transparent"
               )}
               aria-label="Click to rename document"
@@ -176,7 +176,7 @@ export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFol
                   setTimeout(() => setBursting(false), 450)
                 }
               }}
-              className="flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-muted active:scale-95"
+              className="flex h-6 w-6 items-center justify-center transition-colors hover:bg-muted active:scale-95"
             >
               <Star
                 style={bursting ? { animation: "star-pop 0.35s ease-out forwards" } : undefined}
