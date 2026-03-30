@@ -61,7 +61,7 @@ export function FolderSidebar({ folderId, currentDocId }: FolderSidebarProps) {
       animate={{ x: 0 }}
       exit={{ x: "-110%" }}
       transition={{ type: "spring", stiffness: 400, damping: 40 }}
-      className="fixed left-3 top-14 bottom-3 w-44 rounded-xl border border-border bg-background shadow-sm flex flex-col z-40 overflow-hidden"
+      className="fixed left-3 top-14 bottom-3 w-44 border border-border bg-background shadow-sm flex flex-col z-40 overflow-hidden"
     >
       <div className="overflow-y-auto py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {docs.map(doc => (
@@ -69,7 +69,7 @@ export function FolderSidebar({ folderId, currentDocId }: FolderSidebarProps) {
             key={doc.id}
             onClick={() => router.push(`/doc/${doc.id}`)}
             className={cn(
-              "w-full text-left px-3 py-2.5 mx-2 rounded-lg transition-colors hover:bg-muted/50",
+              "w-full text-left px-3 py-2.5 mx-2 transition-colors hover:bg-muted/50",
               doc.id === currentDocId && "bg-muted/40"
             )}
             style={{ width: "calc(100% - 1rem)" }}
@@ -82,7 +82,7 @@ export function FolderSidebar({ folderId, currentDocId }: FolderSidebarProps) {
         <div className="px-2 pt-1">
           <button
             onClick={createDoc}
-            className="w-full flex items-center justify-center h-10 rounded-lg border-2 border-dashed border-border hover:border-foreground/25 hover:bg-muted/20 transition-all text-muted-foreground hover:text-foreground/50 cursor-pointer"
+            className="w-full flex items-center justify-center h-10 border-2 border-dashed border-border hover:border-foreground/25 hover:bg-muted/20 transition-all text-muted-foreground hover:text-foreground/50 cursor-pointer"
           >
             <Plus className="h-4 w-4" />
           </button>

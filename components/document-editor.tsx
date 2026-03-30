@@ -451,7 +451,7 @@ export const DocumentEditor = memo(forwardRef<DocumentEditorHandle, DocumentEdit
               transformOrigin: "bottom center",
               zIndex: 50,
             }}
-            className="overflow-hidden rounded-lg border border-white/10 bg-black shadow-md text-xs"
+            className="overflow-hidden border border-white/10 bg-black shadow-md text-xs"
           >
             {/* Height-animated container */}
             <motion.div
@@ -473,21 +473,21 @@ export const DocumentEditor = memo(forwardRef<DocumentEditorHandle, DocumentEdit
                 <button
                   title="Open link"
                   onClick={() => window.open(linkTooltip.anchor.href, "_blank", "noopener,noreferrer")}
-                  className="shrink-0 cursor-pointer rounded p-0.5 text-white/60 hover:text-white transition-colors"
+                  className="shrink-0 cursor-pointer p-0.5 text-white/60 hover:text-white transition-colors"
                 >
                   <ExternalLink className="h-3 w-3" />
                 </button>
                 <button
                   title="Edit"
                   onClick={() => setLinkTooltip(t => t ? { ...t, editMode: true } : t)}
-                  className="shrink-0 cursor-pointer rounded p-0.5 text-white/60 hover:text-white transition-colors"
+                  className="shrink-0 cursor-pointer p-0.5 text-white/60 hover:text-white transition-colors"
                 >
                   <Pencil className="h-3 w-3" />
                 </button>
                 <button
                   title="Remove link"
                   onClick={removeTooltipLink}
-                  className="shrink-0 cursor-pointer rounded p-0.5 text-white/60 hover:text-white transition-colors"
+                  className="shrink-0 cursor-pointer p-0.5 text-white/60 hover:text-white transition-colors"
                 >
                   <Unlink className="h-3 w-3" />
                 </button>
@@ -510,7 +510,7 @@ export const DocumentEditor = memo(forwardRef<DocumentEditorHandle, DocumentEdit
                     onChange={(e) => setLinkTooltip(t => t ? { ...t, editUrl: e.target.value } : t)}
                     onKeyDown={(e) => { if (e.key === "Enter") applyTooltipEdit(); if (e.key === "Escape") setLinkTooltip(null) }}
                     placeholder="https://"
-                    className="w-full rounded border border-white/20 bg-white/10 px-2 py-1 text-xs text-white placeholder:text-white/40 outline-none focus:border-white/50 transition-colors"
+                    className="w-full border border-white/20 bg-white/10 px-2 py-1 text-xs text-white placeholder:text-white/40 outline-none focus:border-white/50 transition-colors"
                   />
                 </label>
                 <label className="flex flex-col gap-0.5">
@@ -521,19 +521,19 @@ export const DocumentEditor = memo(forwardRef<DocumentEditorHandle, DocumentEdit
                     onChange={(e) => setLinkTooltip(t => t ? { ...t, editText: e.target.value } : t)}
                     onKeyDown={(e) => { if (e.key === "Enter") applyTooltipEdit(); if (e.key === "Escape") setLinkTooltip(null) }}
                     placeholder="Link text"
-                    className="w-full rounded border border-white/20 bg-white/10 px-2 py-1 text-xs text-white placeholder:text-white/40 outline-none focus:border-white/50 transition-colors"
+                    className="w-full border border-white/20 bg-white/10 px-2 py-1 text-xs text-white placeholder:text-white/40 outline-none focus:border-white/50 transition-colors"
                   />
                 </label>
                 <div className="flex gap-1">
                   <button
                     onClick={applyTooltipEdit}
-                    className="flex-1 cursor-pointer rounded bg-white py-1 text-xs font-medium text-black hover:opacity-90 transition-opacity"
+                    className="flex-1 cursor-pointer bg-white py-1 text-xs font-medium text-black hover:opacity-90 transition-opacity"
                   >
                     Apply
                   </button>
                   <button
                     onClick={() => setLinkTooltip(t => t ? { ...t, editMode: false } : t)}
-                    className="flex-1 cursor-pointer rounded bg-white/10 py-1 text-xs text-white/60 hover:text-white transition-colors"
+                    className="flex-1 cursor-pointer bg-white/10 py-1 text-xs text-white/60 hover:text-white transition-colors"
                   >
                     Cancel
                   </button>
