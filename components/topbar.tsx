@@ -196,12 +196,12 @@ export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFol
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <button
             onClick={() => setCommandOpen(true)}
-            className="group pointer-events-auto flex h-7 w-fit cursor-pointer items-center gap-2 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted/60"
+            className="group pointer-events-auto flex h-7 w-fit cursor-pointer items-center gap-2 px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted/60"
           >
             <Search className="h-3.5 w-3.5 shrink-0" />
             <span>Search</span>
             <span className="w-2 transition-all duration-200 group-hover:w-8" />
-            <kbd className="hidden items-center gap-0.5 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] sm:flex">
+            <kbd className="hidden items-center gap-0.5 font-mono text-[10px] sm:flex">
               <span className="text-[13px]">⌘</span><span>K</span>
             </kbd>
           </button>

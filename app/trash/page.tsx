@@ -135,7 +135,6 @@ export default function TrashPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-40">
                       <DropdownMenuItem onClick={() => restoreDoc(doc.id)}>
-                        <RotateCcw className="h-3.5 w-3.5" />
                         Restore
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
@@ -143,7 +142,6 @@ export default function TrashPage() {
                         onClick={() => deleteForever(doc.id)}
                         className="text-destructive focus:text-destructive"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
                         Delete forever
                       </DropdownMenuItem>
                     </DropdownMenuContent>

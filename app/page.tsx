@@ -13,6 +13,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandShortcut,
 } from "@/components/ui/command"
 import {
   DropdownMenu,
@@ -20,14 +21,26 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { FileText } from "lucide-react"
+import { FileText, File, FilePlusCorner } from "lucide-react"
 import { toast } from "sonner"
+import { ActionButton } from "@/components/action-button"
 
 type Doc = {
   id: string
   title: string
   updated_at: string
   folder_id: string | null
+}
+
+type SearchResult = Doc & { content: string }
+
+function getSnippet(content: string, query: string): string | null {
+  const plain = content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+  const idx = plain.toLowerCase().indexOf(query.toLowerCase())
+  if (idx === -1) return null
+  const start = Math.max(0, idx - 15)
+  const snippet = (start > 0 ? "…" : "") + plain.slice(start, idx + query.length + 15).trimEnd()
+  return snippet.length < plain.length ? snippet + "…" : snippet
 }
 
 type FolderItem = {
@@ -47,25 +60,23 @@ function DocCard({ doc, onClick, onDelete }: { doc: Doc; onClick: () => void; on
   return (
     <div
       onClick={onClick}
-      className="cursor-pointer rounded-xl border border-border bg-background overflow-hidden hover:border-foreground/20 hover:shadow-sm transition-all group relative"
+      className="cursor-pointer border border-border bg-[#FCFCFC] dark:bg-card overflow-hidden hover:border-foreground/20 hover:shadow-sm transition-all group relative flex flex-col justify-between py-4 px-[18px] h-[184px]"
     >
-      <div className="bg-muted/40 p-5 h-[128px] flex flex-col gap-2.5">
-        <div className="h-1.5 rounded-full bg-foreground/10 w-2/3" />
-        <div className="h-1.5 rounded-full bg-foreground/8 w-full" />
-        <div className="h-1.5 rounded-full bg-foreground/8 w-5/6" />
-        <div className="h-1.5 rounded-full bg-foreground/6 w-3/4" />
-        <div className="h-1.5 rounded-full bg-foreground/5 w-1/2" />
+      <div className="flex flex-col gap-[5px]">
+        <p className="text-[13px] font-medium text-foreground truncate leading-[18px]">{doc.title || "Untitled"}</p>
+        <div className="h-[5px] rounded-sm bg-[#E4E4E4] dark:bg-foreground/10 w-3/5" />
+        <div className="h-[5px] rounded-sm bg-[#EEEEEE] dark:bg-foreground/8 w-full" />
+        <div className="h-[5px] rounded-sm bg-[#EEEEEE] dark:bg-foreground/8 w-[70%]" />
+        <div className="h-[5px] rounded-sm bg-[#EEEEEE] dark:bg-foreground/8 w-[92%]" />
+        <div className="h-[5px] rounded-sm bg-[#F2F2F2] dark:bg-foreground/6 w-[55%]" />
       </div>
-      <div className="px-4 py-3 border-t border-border flex items-end justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground truncate">{doc.title || "Untitled"}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">{formatDate(doc.updated_at)}</p>
-        </div>
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] text-foreground/40 leading-[14px]">{formatDate(doc.updated_at)}</p>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               onClick={e => e.stopPropagation()}
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-muted transition-all cursor-pointer"
+              className="flex h-6 w-6 shrink-0 items-center justify-center text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-muted transition-all cursor-pointer rounded"
             >
               <MoreHorizontal className="h-3.5 w-3.5" />
             </button>
@@ -75,7 +86,6 @@ function DocCard({ doc, onClick, onDelete }: { doc: Doc; onClick: () => void; on
               onClick={e => { e.stopPropagation(); onDelete() }}
               className="text-destructive focus:text-destructive"
             >
-              <Trash2 className="h-3.5 w-3.5" />
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -89,10 +99,16 @@ function NewDocCard({ label, onClick }: { label: string; onClick: () => void }) 
   return (
     <button
       onClick={onClick}
-      className="rounded-xl border-2 border-dashed border-border hover:border-foreground/25 hover:bg-muted/20 transition-all flex flex-col items-center justify-center gap-2 h-[195px] w-full text-muted-foreground hover:text-foreground/50 cursor-pointer"
+      className="border border-dashed border-[#D9D9D9] dark:border-border hover:border-foreground/25 hover:bg-muted/20 transition-all flex flex-col justify-between h-[184px] w-full py-4 px-[18px] opacity-60 hover:opacity-80 text-foreground cursor-pointer"
     >
-      <Plus className="h-4 w-4" />
-      <span className="text-sm">{label}</span>
+      <span className="text-[13px] font-medium text-left leading-[18px]">{label}</span>
+      <div className="flex justify-end">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+          <line x1="12" y1="8" x2="12" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <line x1="8" y1="12" x2="16" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      </div>
     </button>
   )
 }
@@ -106,9 +122,29 @@ export default function Home() {
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState("")
   const [commandOpen, setCommandOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [searching, setSearching] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => { load() }, [])
+
+  useEffect(() => {
+    if (!searchQuery.trim()) { setSearchResults([]); setSearching(false); return }
+    setSearching(true)
+    const timer = setTimeout(async () => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from("documents")
+        .select("id, title, updated_at, folder_id, content")
+        .textSearch("fts", searchQuery, { type: "websearch", config: "english" })
+        .is("deleted_at", null)
+        .limit(10)
+      setSearchResults(data ?? [])
+      setSearching(false)
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -116,9 +152,13 @@ export default function Home() {
         e.preventDefault()
         setCommandOpen(prev => !prev)
       }
+      if (e.key === "0" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        createDoc()
+      }
     }
-    window.addEventListener("keydown", onKeyDown)
-    return () => window.removeEventListener("keydown", onKeyDown)
+    window.addEventListener("keydown", onKeyDown, true)
+    return () => window.removeEventListener("keydown", onKeyDown, true)
   }, [])
 
   async function load() {
@@ -174,6 +214,15 @@ export default function Home() {
     }
   }
 
+  async function deleteFolder(id: string) {
+    const supabase = createClient()
+    await supabase.from("documents").update({ folder_id: null }).eq("folder_id", id)
+    await supabase.from("folders").delete().eq("id", id)
+    setDocs(prev => prev.map(d => d.folder_id === id ? { ...d, folder_id: null } : d))
+    setFolders(prev => prev.filter(f => f.id !== id))
+    toast.success("Folder deleted")
+  }
+
   async function commitFolderRename(id: string) {
     const name = renameValue.trim() || "Untitled Folder"
     const supabase = createClient()
@@ -185,7 +234,7 @@ export default function Home() {
   const now = new Date()
   const hour = now.getHours()
   const timeOfDay = hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening"
-  const dateStr = format(now, "EEEE, MMMM d · h:mm") + (hour < 12 ? "AM" : "PM")
+  const dateStr = format(now, "EEEE, MMMM d ・h:mm") + (hour < 12 ? "AM" : "PM")
   const unfiledDocs = useMemo(() => docs.filter(d => !d.folder_id), [docs])
 
   return (
@@ -203,12 +252,12 @@ export default function Home() {
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <button
             onClick={() => setCommandOpen(true)}
-            className="group pointer-events-auto flex h-7 w-fit cursor-pointer items-center gap-2 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted/60"
+            className="group pointer-events-auto flex h-7 w-fit cursor-pointer items-center gap-2 px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted/60"
           >
             <Search className="h-3.5 w-3.5 shrink-0" />
             <span>Search</span>
             <span className="w-2 transition-all duration-200 group-hover:w-8" />
-            <kbd className="hidden items-center gap-0.5 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] sm:flex">
+            <kbd className="hidden items-center gap-0.5 font-mono text-[10px] sm:flex">
               <span className="text-[13px]">⌘</span><span>K</span>
             </kbd>
           </button>
@@ -225,7 +274,6 @@ export default function Home() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-36">
             <DropdownMenuItem onClick={() => router.push("/trash")}>
-              <Trash2 className="h-3.5 w-3.5" />
               Trash
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -233,32 +281,86 @@ export default function Home() {
       </header>
 
       {/* Command palette */}
-      <CommandDialog open={commandOpen} onOpenChange={setCommandOpen} title="Search" description="Search documents">
-        <CommandInput placeholder="Search documents…" />
+      <CommandDialog
+        open={commandOpen}
+        onOpenChange={(open) => { setCommandOpen(open); if (!open) { setSearchQuery(""); setSearching(false) } }}
+        title="Search"
+        description="Search documents"
+        shouldFilter={false}
+      >
+        <CommandInput placeholder="Search documents…" onValueChange={setSearchQuery} />
         <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
-          <CommandGroup heading="Documents">
-            {docs.map(doc => (
-              <CommandItem
-                key={doc.id}
-                onSelect={() => { router.push(`/doc/${doc.id}`); setCommandOpen(false) }}
-              >
-                <FileText />
-                <span>{doc.title || "Untitled"}</span>
-              </CommandItem>
-            ))}
-          </CommandGroup>
+          {searchQuery ? (
+            searching ? (
+              <CommandEmpty>Searching…</CommandEmpty>
+            ) : searchResults.length === 0 ? (
+              <CommandEmpty>No results found.</CommandEmpty>
+            ) : (
+              <CommandGroup>
+                {searchResults.map(doc => {
+                  const titleMatches = doc.title?.toLowerCase().includes(searchQuery.toLowerCase())
+                  const snippet = !titleMatches ? getSnippet(doc.content ?? "", searchQuery) : null
+                  return (
+                    <CommandItem
+                      key={doc.id}
+                      value={doc.id}
+                      onSelect={() => { router.push(`/doc/${doc.id}`); setCommandOpen(false) }}
+                      className="flex items-start gap-2"
+                    >
+                      <File className="h-4 w-4 shrink-0 mt-0.5" />
+                      <div className="flex flex-col gap-0.5">
+                      <span>{doc.title || "Untitled"}</span>
+                      {snippet && (
+                        <span className="text-xs text-muted-foreground line-clamp-1">{snippet}</span>
+                      )}
+                      </div>
+                    </CommandItem>
+                  )
+                })}
+              </CommandGroup>
+            )
+          ) : (
+            <>
+              <CommandGroup heading="Recent">
+                {docs.slice(0, 3).map((doc, i) => (
+                  <CommandItem
+                    key={doc.id}
+                    value={doc.id}
+                    onSelect={() => { router.push(`/doc/${doc.id}`); setCommandOpen(false) }}
+                    className="animate-in fade-in slide-in-from-top-1 fill-mode-both"
+                    style={{ animationDelay: `${i * 40}ms`, animationDuration: "200ms" }}
+                  >
+                    <File className="h-4 w-4 shrink-0" />
+                    <span>{doc.title || "Untitled"}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+              <CommandGroup heading="Commands">
+                <CommandItem
+                  value="new-page"
+                  onSelect={() => { createDoc(); setCommandOpen(false) }}
+                  className="animate-in fade-in slide-in-from-top-1 fill-mode-both"
+                  style={{ animationDelay: `${3 * 40}ms`, animationDuration: "200ms" }}
+                >
+                  <FilePlusCorner className="h-4 w-4 shrink-0" />
+                  <span>New Page</span>
+                  <CommandShortcut>⌘0</CommandShortcut>
+                </CommandItem>
+              </CommandGroup>
+            </>
+
+          )}
         </CommandList>
       </CommandDialog>
 
       {/* Content */}
       <main className="flex-1 overflow-y-auto px-8 py-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-[1240px] mx-auto">
 
           {/* Greeting */}
-          <div className="mb-10">
-            <p className="text-sm text-muted-foreground mb-1">{dateStr}</p>
-            <h1 className="text-2xl font-semibold text-foreground">
+          <div className="mb-8">
+            <p className="text-sm text-[#AAAAAA] dark:text-muted-foreground mb-0.5">{dateStr}</p>
+            <h1 className="text-[26px] font-semibold tracking-[0.01em] text-foreground leading-8">
               Good {timeOfDay}{userName ? `, ${userName}` : ""}.
             </h1>
           </div>
@@ -266,20 +368,14 @@ export default function Home() {
           {/* Actions row */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => createDoc()}
-                className="flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-1.5 text-sm font-medium text-background hover:opacity-80 transition-opacity cursor-pointer"
-              >
-                New Page <span>+</span>
-              </button>
-              <button
-                onClick={createFolder}
-                className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors cursor-pointer"
-              >
-                New Folder <span className="text-muted-foreground">+</span>
-              </button>
+              <ActionButton onClick={() => createDoc()}>
+                New Page <Plus className="h-3 w-3 opacity-90" />
+              </ActionButton>
+              <ActionButton variant="secondary" onClick={createFolder}>
+                New Folder <Plus className="h-3 w-3" />
+              </ActionButton>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-foreground opacity-30">
               {docs.length} {docs.length === 1 ? "page" : "pages"}
             </p>
           </div>
@@ -288,12 +384,8 @@ export default function Home() {
           {loading ? (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(185px,1fr))] gap-4 mb-10">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="rounded-xl border border-border overflow-hidden animate-pulse">
-                  <div className="bg-muted/40 h-[128px]" />
-                  <div className="px-4 py-3 border-t border-border">
-                    <div className="h-3 rounded-full bg-muted w-2/3 mb-2" />
-                    <div className="h-2.5 rounded-full bg-muted/60 w-1/3" />
-                  </div>
+                <div key={i} className="border border-border overflow-hidden animate-pulse h-[184px]">
+                  <div className="bg-muted/40 h-full" />
                 </div>
               ))}
             </div>
@@ -302,7 +394,7 @@ export default function Home() {
               {unfiledDocs.map(doc => (
                 <DocCard key={doc.id} doc={doc} onClick={() => router.push(`/doc/${doc.id}`)} onDelete={() => deleteDoc(doc.id)} />
               ))}
-              <NewDocCard label="New Unfiled Doc" onClick={() => createDoc()} />
+              <NewDocCard label="New page" onClick={() => createDoc()} />
             </div>
           )}
 
@@ -311,8 +403,8 @@ export default function Home() {
             const folderDocs = docs.filter(d => d.folder_id === folder.id)
             return (
               <div key={folder.id} className="mb-10">
-                <div className="flex items-center gap-1.5 mb-4">
-                  <Folder className="h-3.5 w-3.5 text-muted-foreground" />
+                <div className="flex items-center gap-2 mb-3.5">
+                  <Folder className="h-3.5 w-3.5 text-[#888888] dark:text-muted-foreground shrink-0" />
                   {renamingFolderId === folder.id ? (
                     <input
                       autoFocus
@@ -323,25 +415,40 @@ export default function Home() {
                         if (e.key === "Enter") commitFolderRename(folder.id)
                         if (e.key === "Escape") setRenamingFolderId(null)
                       }}
-                      className="text-sm font-medium bg-transparent outline-none border-b border-foreground/30 focus:border-foreground transition-colors"
+                      className="text-[13px] font-medium bg-transparent outline-none border-b border-foreground/30 focus:border-foreground transition-colors text-[#555555] dark:text-foreground"
                     />
                   ) : (
                     <button
                       onClick={() => { setRenamingFolderId(folder.id); setRenameValue(folder.name) }}
-                      className="text-sm font-medium hover:opacity-60 transition-opacity cursor-pointer"
+                      className="text-[13px] font-medium text-[#555555] dark:text-foreground hover:opacity-60 transition-opacity cursor-pointer"
                     >
                       {folder.name}
                     </button>
                   )}
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-xs text-foreground opacity-30">
                     · {folderDocs.length} {folderDocs.length === 1 ? "page" : "pages"}
                   </span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="flex h-4 w-4 items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer ml-0.5">
+                        <MoreHorizontal className="h-3 w-3" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-36">
+                      <DropdownMenuItem
+                        onClick={() => deleteFolder(folder.id)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(185px,1fr))] gap-4">
                   {folderDocs.map(doc => (
                     <DocCard key={doc.id} doc={doc} onClick={() => router.push(`/doc/${doc.id}`)} onDelete={() => deleteDoc(doc.id)} />
                   ))}
-                  <NewDocCard label={`New in ${folder.name}`} onClick={() => createDoc(folder.id)} />
+                  <NewDocCard label={`New page in ${folder.name}`} onClick={() => createDoc(folder.id)} />
                 </div>
               </div>
             )
