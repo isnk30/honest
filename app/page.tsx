@@ -24,6 +24,10 @@ import {
 import { FileText, File, FilePlusCorner } from "lucide-react"
 import { toast } from "sonner"
 import { ActionButton } from "@/components/action-button"
+import { docCache } from "@/lib/doc-cache"
+import { homeCache } from "@/lib/home-cache"
+import { userCache } from "@/lib/user-cache"
+import { cn } from "@/lib/utils"
 
 type Doc = {
   id: string
@@ -115,19 +119,22 @@ function NewDocCard({ label, onClick }: { label: string; onClick: () => void }) 
 
 export default function Home() {
   const router = useRouter()
-  const [docs, setDocs] = useState<Doc[]>([])
-  const [folders, setFolders] = useState<FolderItem[]>([])
-  const [userAvatar, setUserAvatar] = useState<string | undefined>()
+  const [docs, setDocs] = useState<Doc[]>(() => homeCache.get()?.docs ?? [])
+  const [folders, setFolders] = useState<FolderItem[]>(() => homeCache.get()?.folders ?? [])
+  const [userAvatar, setUserAvatar] = useState<string | undefined>(() => userCache.get()?.avatarUrl)
   const [userName, setUserName] = useState("")
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState("")
   const [commandOpen, setCommandOpen] = useState(false)
+  const [fadingOut, setFadingOut] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [searching, setSearching] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => homeCache.get() === null)
 
   useEffect(() => { load() }, [])
+  useEffect(() => { requestAnimationFrame(() => setMounted(true)) }, [])
 
   useEffect(() => {
     if (!searchQuery.trim()) { setSearchResults([]); setSearching(false); return }
@@ -166,16 +173,21 @@ export default function Home() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    setUserAvatar(user.user_metadata?.avatar_url)
-    const firstName = ((user.user_metadata?.full_name as string) ?? "").split(" ")[0]
-    setUserName(firstName)
+    const avatarUrl = user.user_metadata?.avatar_url
+    const name = ((user.user_metadata?.full_name as string) ?? "").split(" ")[0]
+    userCache.set({ avatarUrl, name })
+    setUserAvatar(avatarUrl)
+    setUserName(name)
 
     const [{ data: docsData }, { data: foldersData }] = await Promise.all([
       supabase.from("documents").select("id, title, updated_at, folder_id").is("deleted_at", null).order("updated_at", { ascending: false }),
       supabase.from("folders").select("*").order("created_at", { ascending: true }),
     ])
-    setDocs(docsData ?? [])
-    setFolders(foldersData ?? [])
+    const docs = docsData ?? []
+    const folders = foldersData ?? []
+    homeCache.set({ docs, folders })
+    setDocs(docs)
+    setFolders(folders)
     setLoading(false)
   }
 
@@ -196,6 +208,26 @@ export default function Home() {
     await supabase.from("documents").update({ deleted_at: new Date().toISOString() }).eq("id", id)
     setDocs(prev => prev.filter(d => d.id !== id))
     toast.success("Moved to trash")
+  }
+
+  async function openDoc(id: string) {
+    let toastId: string | number | undefined
+    const toastTimer = setTimeout(() => { toastId = toast.loading("Opening…") }, 1000)
+    const supabase = createClient()
+    const { data } = await supabase
+      .from("documents")
+      .select("title, content, folder_id, folders(name)")
+      .eq("id", id)
+      .single()
+    clearTimeout(toastTimer)
+    if (toastId !== undefined) toast.dismiss(toastId)
+    if (data) {
+      const folder = data.folders as { name: string } | null
+      docCache.set(id, { title: data.title, content: data.content, folder_id: data.folder_id, folder_name: folder?.name })
+    }
+    setFadingOut(true)
+    await new Promise(r => setTimeout(r, 200))
+    router.push(`/doc/${id}`)
   }
 
   async function createFolder() {
@@ -266,7 +298,7 @@ export default function Home() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Avatar className="h-7 w-7 cursor-pointer transition-opacity hover:opacity-70">
-              <AvatarImage src={userAvatar} alt="Profile" />
+              <AvatarImage src={userAvatar} alt="Profile" referrerPolicy="no-referrer" />
               <AvatarFallback className="bg-muted text-xs font-medium text-muted-foreground">
                 <User className="h-3.5 w-3.5" />
               </AvatarFallback>
@@ -304,7 +336,7 @@ export default function Home() {
                     <CommandItem
                       key={doc.id}
                       value={doc.id}
-                      onSelect={() => { router.push(`/doc/${doc.id}`); setCommandOpen(false) }}
+                      onSelect={() => { setCommandOpen(false); openDoc(doc.id) }}
                       className="flex items-start gap-2"
                     >
                       <File className="h-4 w-4 shrink-0 mt-0.5" />
@@ -326,7 +358,7 @@ export default function Home() {
                   <CommandItem
                     key={doc.id}
                     value={doc.id}
-                    onSelect={() => { router.push(`/doc/${doc.id}`); setCommandOpen(false) }}
+                    onSelect={() => { setCommandOpen(false); openDoc(doc.id) }}
                     className="animate-in fade-in slide-in-from-top-1 fill-mode-both"
                     style={{ animationDelay: `${i * 40}ms`, animationDuration: "200ms" }}
                   >
@@ -346,6 +378,15 @@ export default function Home() {
                   <span>New Page</span>
                   <CommandShortcut>⌘0</CommandShortcut>
                 </CommandItem>
+                <CommandItem
+                  value="see-trash"
+                  onSelect={() => { router.push("/trash"); setCommandOpen(false) }}
+                  className="animate-in fade-in slide-in-from-top-1 fill-mode-both"
+                  style={{ animationDelay: `${4 * 40}ms`, animationDuration: "200ms" }}
+                >
+                  <Trash2 className="h-4 w-4 shrink-0" />
+                  <span>See Trash</span>
+                </CommandItem>
               </CommandGroup>
             </>
 
@@ -354,7 +395,7 @@ export default function Home() {
       </CommandDialog>
 
       {/* Content */}
-      <main className="flex-1 overflow-y-auto px-8 py-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <main className={cn("flex-1 overflow-y-auto px-8 py-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden transition-opacity duration-200", fadingOut ? "opacity-0" : mounted ? "opacity-100" : "opacity-0")}>
         <div className="max-w-[1240px] mx-auto">
 
           {/* Greeting */}
@@ -392,7 +433,7 @@ export default function Home() {
           ) : (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(185px,1fr))] gap-4 mb-10">
               {unfiledDocs.map(doc => (
-                <DocCard key={doc.id} doc={doc} onClick={() => router.push(`/doc/${doc.id}`)} onDelete={() => deleteDoc(doc.id)} />
+                <DocCard key={doc.id} doc={doc} onClick={() => openDoc(doc.id)} onDelete={() => deleteDoc(doc.id)} />
               ))}
               <NewDocCard label="New page" onClick={() => createDoc()} />
             </div>
@@ -446,7 +487,7 @@ export default function Home() {
                 </div>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(185px,1fr))] gap-4">
                   {folderDocs.map(doc => (
-                    <DocCard key={doc.id} doc={doc} onClick={() => router.push(`/doc/${doc.id}`)} onDelete={() => deleteDoc(doc.id)} />
+                    <DocCard key={doc.id} doc={doc} onClick={() => openDoc(doc.id)} onDelete={() => deleteDoc(doc.id)} />
                   ))}
                   <NewDocCard label={`New page in ${folder.name}`} onClick={() => createDoc(folder.id)} />
                 </div>

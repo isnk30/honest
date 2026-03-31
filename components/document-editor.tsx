@@ -379,7 +379,8 @@ export const DocumentEditor = memo(forwardRef<DocumentEditorHandle, DocumentEdit
     }, [])
 
     return (
-      <div className="w-full max-w-3xl py-16">
+      <div className="w-full max-w-3xl py-10">
+      <div className="bg-background border border-border shadow-sm px-16 py-14 min-h-[calc(100vh-120px)]">
         <style>{IMAGE_STYLES}</style>
 
         {/* Title */}
@@ -543,6 +544,7 @@ export const DocumentEditor = memo(forwardRef<DocumentEditorHandle, DocumentEdit
           </motion.div>
         )}
         </AnimatePresence>
+      </div>
       </div>
     )
   }

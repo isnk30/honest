@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronRight, Star, MoreHorizontal, Search, UserRoundPlus, User, FileText, FolderOpen, Settings, Trash2, Copy, MoveRight } from "lucide-react"
+import { ChevronRight, Star, MoreHorizontal, Search, User, Trash2, MoveRight, FilePlusCorner, File } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   CommandDialog,
@@ -11,7 +11,6 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command"
 import {
@@ -23,6 +22,19 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
+import { createClient } from "@/lib/supabase/client"
+
+type RecentDoc = { id: string; title: string; updated_at: string }
+type SearchResult = RecentDoc & { content: string }
+
+function getSnippet(content: string, query: string): string | null {
+  const plain = content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+  const idx = plain.toLowerCase().indexOf(query.toLowerCase())
+  if (idx === -1) return null
+  const start = Math.max(0, idx - 15)
+  const snippet = (start > 0 ? "…" : "") + plain.slice(start, idx + query.length + 15).trimEnd()
+  return snippet.length < plain.length ? snippet + "…" : snippet
+}
 
 interface TopbarProps {
   docName: string
@@ -31,9 +43,12 @@ interface TopbarProps {
   folderName?: string
   onFolderClick?: () => void
   onDelete?: () => void
+  onHomeClick?: () => void
+  onNewPage?: () => void
+  onMoveToFolder?: () => void
 }
 
-export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFolderClick, onDelete }: TopbarProps) {
+export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFolderClick, onDelete, onHomeClick, onNewPage, onMoveToFolder }: TopbarProps) {
   const router = useRouter()
   const [starred, setStarred] = useState(false)
   const [bursting, setBursting] = useState(false)
@@ -41,6 +56,10 @@ export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFol
   const [isRenaming, setIsRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState(docName)
   const [renameHovered, setRenameHovered] = useState(false)
+  const [recentDocs, setRecentDocs] = useState<RecentDoc[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [searching, setSearching] = useState(false)
   const renameInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -49,6 +68,37 @@ export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFol
       renameInputRef.current?.select()
     }
   }, [isRenaming])
+
+  useEffect(() => {
+    async function loadRecent() {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from("documents")
+        .select("id, title, updated_at")
+        .is("deleted_at", null)
+        .order("updated_at", { ascending: false })
+        .limit(3)
+      setRecentDocs(data ?? [])
+    }
+    loadRecent()
+  }, [])
+
+  useEffect(() => {
+    if (!searchQuery.trim()) { setSearchResults([]); setSearching(false); return }
+    setSearching(true)
+    const timer = setTimeout(async () => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from("documents")
+        .select("id, title, updated_at, content")
+        .textSearch("fts", searchQuery, { type: "websearch", config: "english" })
+        .is("deleted_at", null)
+        .limit(10)
+      setSearchResults(data ?? [])
+      setSearching(false)
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   // ⌘K / Ctrl+K to open command palette
   useEffect(() => {
@@ -79,11 +129,17 @@ export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFol
     if (e.key === "Escape") setIsRenaming(false)
   }
 
+  function closeCommand() {
+    setCommandOpen(false)
+    setSearchQuery("")
+    setSearching(false)
+  }
+
   return (
     <>
-      <header className="relative flex h-12 w-full items-center gap-2 bg-background px-3">
+      <header className="relative flex h-12 w-full items-center gap-2 bg-background px-4">
         {/* App icon */}
-        <div onClick={() => router.push("/")} className="flex h-7 w-7 shrink-0 items-center justify-center cursor-pointer">
+        <div onClick={() => onHomeClick ? onHomeClick() : router.push("/")} className="flex h-7 w-7 shrink-0 items-center justify-center cursor-pointer">
           <img
             src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/hoenst%20logo-gpNSSpWBxxqq17ZGgKgLhGcM8BfrOo.png"
             alt="Honest logo"
@@ -227,20 +283,9 @@ export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFol
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Share */}
-        {/* <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 gap-1.5 rounded-md px-2.5 text-sm text-muted-foreground hover:text-foreground active:scale-95"
-          aria-label="Share document"
-        >
-          <UserRoundPlus className="h-3.5 w-3.5" />
-          <span>Share</span>
-        </Button> */}
-
         {/* Profile picture */}
         <Avatar className="h-7 w-7 cursor-pointer transition-opacity hover:opacity-50">
-          <AvatarImage src={userAvatar ?? "/avatar.jpg"} alt="Profile picture" />
+          <AvatarImage src={userAvatar ?? "/avatar.jpg"} alt="Profile picture" referrerPolicy="no-referrer" />
           <AvatarFallback className="bg-muted text-xs font-medium text-muted-foreground">
             <User className="h-3.5 w-3.5" />
           </AvatarFallback>
@@ -248,52 +293,103 @@ export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFol
       </header>
 
       {/* Command palette */}
-      <CommandDialog open={commandOpen} onOpenChange={setCommandOpen} title="Search" description="Search documents and actions">
-        <CommandInput placeholder="Search or type a command…" />
+      <CommandDialog
+        open={commandOpen}
+        onOpenChange={(open) => { setCommandOpen(open); if (!open) { setSearchQuery(""); setSearching(false) } }}
+        title="Search"
+        description="Search documents"
+        shouldFilter={false}
+      >
+        <CommandInput placeholder="Search documents…" onValueChange={setSearchQuery} />
         <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
-          <CommandGroup heading="Documents">
-            <CommandItem>
-              <FileText />
-              <span>Doc Name</span>
-            </CommandItem>
-            <CommandItem>
-              <FileText />
-              <span>Untitled</span>
-            </CommandItem>
-          </CommandGroup>
-          <CommandSeparator />
-          <CommandGroup heading="Actions">
-            <CommandItem onSelect={startRenaming}>
-              <FileText />
-              <span>Rename document</span>
-              <CommandShortcut>⌘R</CommandShortcut>
-            </CommandItem>
-            <CommandItem>
-              <Copy />
-              <span>Duplicate</span>
-            </CommandItem>
-            <CommandItem>
-              <MoveRight />
-              <span>Move to folder</span>
-            </CommandItem>
-            <CommandItem>
-              <FolderOpen />
-              <span>Open folder</span>
-            </CommandItem>
-          </CommandGroup>
-          <CommandSeparator />
-          <CommandGroup heading="Settings">
-            <CommandItem>
-              <Settings />
-              <span>Preferences</span>
-              <CommandShortcut>⌘,</CommandShortcut>
-            </CommandItem>
-            <CommandItem className="text-destructive data-[selected=true]:text-destructive">
-              <Trash2 />
-              <span>Delete document</span>
-            </CommandItem>
-          </CommandGroup>
+          {searchQuery ? (
+            searching ? (
+              <CommandEmpty>Searching…</CommandEmpty>
+            ) : searchResults.length === 0 ? (
+              <CommandEmpty>No results found.</CommandEmpty>
+            ) : (
+              <CommandGroup>
+                {searchResults.map(doc => {
+                  const titleMatches = doc.title?.toLowerCase().includes(searchQuery.toLowerCase())
+                  const snippet = !titleMatches ? getSnippet(doc.content ?? "", searchQuery) : null
+                  return (
+                    <CommandItem
+                      key={doc.id}
+                      value={doc.id}
+                      onSelect={() => { closeCommand(); router.push(`/doc/${doc.id}`) }}
+                      className="flex items-start gap-2"
+                    >
+                      <File className="h-4 w-4 shrink-0 mt-0.5" />
+                      <div className="flex flex-col gap-0.5">
+                        <span>{doc.title || "Untitled"}</span>
+                        {snippet && (
+                          <span className="text-xs text-muted-foreground line-clamp-1">{snippet}</span>
+                        )}
+                      </div>
+                    </CommandItem>
+                  )
+                })}
+              </CommandGroup>
+            )
+          ) : (
+            <>
+              <CommandGroup heading="Recent">
+                {recentDocs.map((doc, i) => (
+                  <CommandItem
+                    key={doc.id}
+                    value={doc.id}
+                    onSelect={() => { closeCommand(); router.push(`/doc/${doc.id}`) }}
+                    className="animate-in fade-in slide-in-from-top-1 fill-mode-both"
+                    style={{ animationDelay: `${i * 40}ms`, animationDuration: "200ms" }}
+                  >
+                    <File className="h-4 w-4 shrink-0" />
+                    <span>{doc.title || "Untitled"}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+              <CommandGroup heading="Commands">
+                <CommandItem
+                  value="new-page"
+                  onSelect={() => { closeCommand(); onNewPage ? onNewPage() : router.push("/") }}
+                  className="animate-in fade-in slide-in-from-top-1 fill-mode-both"
+                  style={{ animationDelay: `${3 * 40}ms`, animationDuration: "200ms" }}
+                >
+                  <FilePlusCorner className="h-4 w-4 shrink-0" />
+                  <span>New Page</span>
+                  <CommandShortcut>⌘0</CommandShortcut>
+                </CommandItem>
+                {onMoveToFolder && (
+                  <CommandItem
+                    value="move-to-folder"
+                    onSelect={() => { closeCommand(); onMoveToFolder() }}
+                    className="animate-in fade-in slide-in-from-top-1 fill-mode-both"
+                    style={{ animationDelay: `${4 * 40}ms`, animationDuration: "200ms" }}
+                  >
+                    <MoveRight className="h-4 w-4 shrink-0" />
+                    <span>Move to Folder</span>
+                  </CommandItem>
+                )}
+                <CommandItem
+                  value="see-trash"
+                  onSelect={() => { closeCommand(); router.push("/trash") }}
+                  className="animate-in fade-in slide-in-from-top-1 fill-mode-both"
+                  style={{ animationDelay: `${5 * 40}ms`, animationDuration: "200ms" }}
+                >
+                  <Trash2 className="h-4 w-4 shrink-0" />
+                  <span>See Trash</span>
+                </CommandItem>
+                <CommandItem
+                  value="delete-page"
+                  onSelect={() => { closeCommand(); onDelete?.() }}
+                  className="animate-in fade-in slide-in-from-top-1 fill-mode-both text-destructive data-[selected=true]:text-destructive"
+                  style={{ animationDelay: `${6 * 40}ms`, animationDuration: "200ms" }}
+                >
+                  <Trash2 className="h-4 w-4 shrink-0" />
+                  <span>Delete Page</span>
+                </CommandItem>
+              </CommandGroup>
+            </>
+          )}
         </CommandList>
       </CommandDialog>
     </>
