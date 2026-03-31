@@ -9,17 +9,21 @@ import { DocumentEditor, type DocumentEditorHandle } from "@/components/document
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { AnimatePresence } from "motion/react"
+import { docCache } from "@/lib/doc-cache"
+import { cn } from "@/lib/utils"
 
 export default function DocPage() {
   const params = useParams()
   const router = useRouter()
   const docId = params.id as string
 
-  const [docName, setDocName] = useState("")
-  const [folderName, setFolderName] = useState<string | undefined>()
-  const [folderId, setFolderId] = useState<string | null>(null)
+  const [docName, setDocName] = useState(() => docCache.get(docId)?.title ?? "")
+  const [folderName, setFolderName] = useState<string | undefined>(() => docCache.get(docId)?.folder_name ?? undefined)
+  const [folderId, setFolderId] = useState<string | null>(() => docCache.get(docId)?.folder_id ?? null)
   const [folderSidebarOpen, setFolderSidebarOpen] = useState(false)
   const [userAvatar, setUserAvatar] = useState<string | undefined>()
+  const [visible, setVisible] = useState(false)
+  const [fadingOut, setFadingOut] = useState(false)
   const editorRef = useRef<DocumentEditorHandle>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const docNameRef = useRef("")
@@ -27,6 +31,14 @@ export default function DocPage() {
   useEffect(() => { docNameRef.current = docName }, [docName])
 
   useEffect(() => {
+    const cached = docCache.get(docId)
+    if (cached) {
+      setDocName(cached.title)
+      editorRef.current?.setContent(cached.content)
+      if (cached.folder_id) setFolderId(cached.folder_id)
+    }
+    requestAnimationFrame(() => setVisible(true))
+
     async function load() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
@@ -43,7 +55,7 @@ export default function DocPage() {
       if (!data) { router.push("/"); return }
 
       setDocName(data.title)
-      editorRef.current?.setContent(data.content)
+      if (!cached) editorRef.current?.setContent(data.content)
 
       if (data.folder_id) {
         setFolderId(data.folder_id)
@@ -82,11 +94,29 @@ export default function DocPage() {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [saveNow])
 
+  const navigateHome = useCallback(async () => {
+    setFadingOut(true)
+    await new Promise(r => setTimeout(r, 200))
+    router.push("/")
+  }, [router])
+
   const deleteDoc = useCallback(async () => {
     const supabase = createClient()
     await supabase.from("documents").update({ deleted_at: new Date().toISOString() }).eq("id", docId)
-    router.push("/")
-  }, [docId, router])
+    navigateHome()
+  }, [docId, navigateHome])
+
+  const createDoc = useCallback(async () => {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase
+      .from("documents")
+      .insert({ user_id: user.id, title: "", content: "", folder_id: null })
+      .select()
+      .single()
+    if (data) router.push(`/doc/${data.id}`)
+  }, [router])
 
   const handleTitleChange = useCallback((name: string) => {
     setDocName(name)
@@ -107,24 +137,28 @@ export default function DocPage() {
           folderName={folderName}
           onFolderClick={() => setFolderSidebarOpen(prev => !prev)}
           onDelete={deleteDoc}
+          onHomeClick={navigateHome}
+          onNewPage={createDoc}
         />
       </div>
-      <AnimatePresence>
-        {folderSidebarOpen && folderId && (
-          <FolderSidebar folderId={folderId} currentDocId={docId} />
-        )}
-      </AnimatePresence>
+      <div className={cn("flex flex-col flex-1 overflow-hidden transition-opacity duration-200", fadingOut ? "opacity-0" : visible ? "opacity-100" : "opacity-0")}>
+        <AnimatePresence>
+          {folderSidebarOpen && folderId && (
+            <FolderSidebar folderId={folderId} currentDocId={docId} />
+          )}
+        </AnimatePresence>
 
-      <div className="relative flex flex-1 overflow-hidden">
-        <Sidebar onInsertImage={(src, range) => editorRef.current?.insertImage(src, range)} />
-        <main className="flex flex-1 justify-center overflow-y-auto px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <DocumentEditor
-            ref={editorRef}
-            title={docName}
-            onTitleChange={handleTitleChange}
-            onContentChange={handleContentChange}
-          />
-        </main>
+        <div className="relative flex flex-1 overflow-hidden">
+          <Sidebar onInsertImage={(src, range) => editorRef.current?.insertImage(src, range)} />
+          <main className="flex flex-1 justify-center overflow-y-auto px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <DocumentEditor
+              ref={editorRef}
+              title={docName}
+              onTitleChange={handleTitleChange}
+              onContentChange={handleContentChange}
+            />
+          </main>
+        </div>
       </div>
     </div>
   )
