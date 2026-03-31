@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
+import { userCache } from "@/lib/user-cache"
 import { cn } from "@/lib/utils"
 
 type Doc = {
@@ -32,7 +33,7 @@ function formatDate(dateStr: string) {
 export default function TrashPage() {
   const router = useRouter()
   const [docs, setDocs] = useState<Doc[]>([])
-  const [userAvatar, setUserAvatar] = useState<string | undefined>()
+  const [userAvatar, setUserAvatar] = useState<string | undefined>(() => userCache.get()?.avatarUrl)
   const [loading, setLoading] = useState(true)
   const [mounted, setMounted] = useState(false)
 
@@ -44,7 +45,9 @@ export default function TrashPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    setUserAvatar(user.user_metadata?.avatar_url)
+    const avatarUrl = user.user_metadata?.avatar_url
+    userCache.set({ avatarUrl })
+    setUserAvatar(avatarUrl)
 
     const { data } = await supabase
       .from("documents")
@@ -81,7 +84,7 @@ export default function TrashPage() {
         />
         <div className="flex-1" />
         <Avatar className="h-7 w-7 cursor-pointer transition-opacity hover:opacity-70">
-          <AvatarImage src={userAvatar} alt="Profile" />
+          <AvatarImage src={userAvatar} alt="Profile" referrerPolicy="no-referrer" />
           <AvatarFallback className="bg-muted text-xs font-medium text-muted-foreground">
             <User className="h-3.5 w-3.5" />
           </AvatarFallback>

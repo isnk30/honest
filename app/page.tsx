@@ -25,6 +25,8 @@ import { FileText, File, FilePlusCorner } from "lucide-react"
 import { toast } from "sonner"
 import { ActionButton } from "@/components/action-button"
 import { docCache } from "@/lib/doc-cache"
+import { homeCache } from "@/lib/home-cache"
+import { userCache } from "@/lib/user-cache"
 import { cn } from "@/lib/utils"
 
 type Doc = {
@@ -117,9 +119,9 @@ function NewDocCard({ label, onClick }: { label: string; onClick: () => void }) 
 
 export default function Home() {
   const router = useRouter()
-  const [docs, setDocs] = useState<Doc[]>([])
-  const [folders, setFolders] = useState<FolderItem[]>([])
-  const [userAvatar, setUserAvatar] = useState<string | undefined>()
+  const [docs, setDocs] = useState<Doc[]>(() => homeCache.get()?.docs ?? [])
+  const [folders, setFolders] = useState<FolderItem[]>(() => homeCache.get()?.folders ?? [])
+  const [userAvatar, setUserAvatar] = useState<string | undefined>(() => userCache.get()?.avatarUrl)
   const [userName, setUserName] = useState("")
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState("")
@@ -129,7 +131,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [searching, setSearching] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => homeCache.get() === null)
 
   useEffect(() => { load() }, [])
   useEffect(() => { requestAnimationFrame(() => setMounted(true)) }, [])
@@ -171,16 +173,21 @@ export default function Home() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    setUserAvatar(user.user_metadata?.avatar_url)
-    const firstName = ((user.user_metadata?.full_name as string) ?? "").split(" ")[0]
-    setUserName(firstName)
+    const avatarUrl = user.user_metadata?.avatar_url
+    const name = ((user.user_metadata?.full_name as string) ?? "").split(" ")[0]
+    userCache.set({ avatarUrl, name })
+    setUserAvatar(avatarUrl)
+    setUserName(name)
 
     const [{ data: docsData }, { data: foldersData }] = await Promise.all([
       supabase.from("documents").select("id, title, updated_at, folder_id").is("deleted_at", null).order("updated_at", { ascending: false }),
       supabase.from("folders").select("*").order("created_at", { ascending: true }),
     ])
-    setDocs(docsData ?? [])
-    setFolders(foldersData ?? [])
+    const docs = docsData ?? []
+    const folders = foldersData ?? []
+    homeCache.set({ docs, folders })
+    setDocs(docs)
+    setFolders(folders)
     setLoading(false)
   }
 
@@ -291,7 +298,7 @@ export default function Home() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Avatar className="h-7 w-7 cursor-pointer transition-opacity hover:opacity-70">
-              <AvatarImage src={userAvatar} alt="Profile" />
+              <AvatarImage src={userAvatar} alt="Profile" referrerPolicy="no-referrer" />
               <AvatarFallback className="bg-muted text-xs font-medium text-muted-foreground">
                 <User className="h-3.5 w-3.5" />
               </AvatarFallback>

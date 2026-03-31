@@ -285,7 +285,7 @@ export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFol
 
         {/* Profile picture */}
         <Avatar className="h-7 w-7 cursor-pointer transition-opacity hover:opacity-50">
-          <AvatarImage src={userAvatar ?? "/avatar.jpg"} alt="Profile picture" />
+          <AvatarImage src={userAvatar ?? "/avatar.jpg"} alt="Profile picture" referrerPolicy="no-referrer" />
           <AvatarFallback className="bg-muted text-xs font-medium text-muted-foreground">
             <User className="h-3.5 w-3.5" />
           </AvatarFallback>

@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { AnimatePresence } from "motion/react"
 import { docCache } from "@/lib/doc-cache"
+import { userCache } from "@/lib/user-cache"
 import { cn } from "@/lib/utils"
 
 export default function DocPage() {
@@ -21,7 +22,7 @@ export default function DocPage() {
   const [folderName, setFolderName] = useState<string | undefined>(() => docCache.get(docId)?.folder_name ?? undefined)
   const [folderId, setFolderId] = useState<string | null>(() => docCache.get(docId)?.folder_id ?? null)
   const [folderSidebarOpen, setFolderSidebarOpen] = useState(false)
-  const [userAvatar, setUserAvatar] = useState<string | undefined>()
+  const [userAvatar, setUserAvatar] = useState<string | undefined>(() => userCache.get()?.avatarUrl)
   const [visible, setVisible] = useState(false)
   const [fadingOut, setFadingOut] = useState(false)
   const editorRef = useRef<DocumentEditorHandle>(null)
@@ -44,7 +45,10 @@ export default function DocPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      setUserAvatar(user.user_metadata?.avatar_url)
+      const avatarUrl = user.user_metadata?.avatar_url
+      const name = ((user.user_metadata?.full_name as string) ?? "").split(" ")[0]
+      userCache.set({ avatarUrl, name })
+      setUserAvatar(avatarUrl)
 
       const { data } = await supabase
         .from("documents")
