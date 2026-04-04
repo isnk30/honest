@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { format, isToday, isYesterday } from "date-fns"
-import { Folder, Plus, User, Search, MoreHorizontal, Trash2 } from "lucide-react"
+import { Folder, Plus, User, Search, MoreHorizontal, Trash2, Pin } from "lucide-react"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import {
   CommandDialog,
@@ -34,6 +34,7 @@ type Doc = {
   title: string
   updated_at: string
   folder_id: string | null
+  pinned?: boolean
 }
 
 type SearchResult = Doc & { content: string }
@@ -67,7 +68,10 @@ function DocCard({ doc, onClick, onDelete }: { doc: Doc; onClick: () => void; on
       className="cursor-pointer border border-border bg-[#FCFCFC] dark:bg-card overflow-hidden hover:border-foreground/20 hover:shadow-sm transition-all group relative flex flex-col justify-between py-4 px-[18px] h-[184px]"
     >
       <div className="flex flex-col gap-[5px]">
-        <p className="text-[13px] font-medium text-foreground truncate leading-[18px]">{doc.title || "Untitled"}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-[13px] font-medium text-foreground truncate leading-[18px]">{doc.title || "Untitled"}</p>
+          {doc.pinned && <Pin className="h-3 w-3 shrink-0 fill-rose-500 text-rose-500" />}
+        </div>
         <div className="h-[5px] rounded-sm bg-[#E4E4E4] dark:bg-foreground/10 w-3/5" />
         <div className="h-[5px] rounded-sm bg-[#EEEEEE] dark:bg-foreground/8 w-full" />
         <div className="h-[5px] rounded-sm bg-[#EEEEEE] dark:bg-foreground/8 w-[70%]" />
@@ -181,7 +185,7 @@ export default function Home() {
     setUserName(name)
 
     const [{ data: docsData }, { data: foldersData }] = await Promise.all([
-      supabase.from("documents").select("id, title, updated_at, folder_id").is("deleted_at", null).order("updated_at", { ascending: false }),
+      supabase.from("documents").select("id, title, updated_at, folder_id, pinned").is("deleted_at", null).order("updated_at", { ascending: false }),
       supabase.from("folders").select("*").order("created_at", { ascending: true }),
     ])
     const docs = docsData ?? []
@@ -273,7 +277,10 @@ export default function Home() {
   const hour = now.getHours()
   const timeOfDay = hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening"
   const dateStr = format(now, "EEEE, MMMM d ・h:mm") + (hour < 12 ? "AM" : "PM")
-  const unfiledDocs = useMemo(() => docs.filter(d => !d.folder_id), [docs])
+  const unfiledDocs = useMemo(() => {
+    const unfiled = docs.filter(d => !d.folder_id)
+    return [...unfiled.filter(d => d.pinned), ...unfiled.filter(d => !d.pinned)]
+  }, [docs])
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background font-sans">

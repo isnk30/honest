@@ -23,6 +23,7 @@ export default function DocPage() {
   const [folderId, setFolderId] = useState<string | null>(() => docCache.get(docId)?.folder_id ?? null)
   const [folderSidebarOpen, setFolderSidebarOpen] = useState(false)
   const [userAvatar, setUserAvatar] = useState<string | undefined>(() => userCache.get()?.avatarUrl)
+  const [pinned, setPinned] = useState(false)
   const [visible, setVisible] = useState(false)
   const [fadingOut, setFadingOut] = useState(false)
   const editorRef = useRef<DocumentEditorHandle>(null)
@@ -59,6 +60,7 @@ export default function DocPage() {
       if (!data) { router.push("/"); return }
 
       setDocName(data.title)
+      setPinned(data.pinned ?? false)
       if (!cached) editorRef.current?.setContent(data.content)
 
       if (data.folder_id) {
@@ -122,6 +124,13 @@ export default function DocPage() {
     if (data) router.push(`/doc/${data.id}`)
   }, [router])
 
+  const togglePin = useCallback(async () => {
+    const next = !pinned
+    setPinned(next)
+    const supabase = createClient()
+    await supabase.from("documents").update({ pinned: next }).eq("id", docId)
+  }, [pinned, docId])
+
   const handleTitleChange = useCallback((name: string) => {
     setDocName(name)
     scheduleAutoSave(name, editorRef.current?.getContent() ?? "")
@@ -143,6 +152,8 @@ export default function DocPage() {
           onDelete={deleteDoc}
           onHomeClick={navigateHome}
           onNewPage={createDoc}
+          pinned={pinned}
+          onPinToggle={togglePin}
         />
       </div>
       <div className={cn("flex flex-col flex-1 overflow-hidden transition-opacity duration-200", fadingOut ? "opacity-0" : visible ? "opacity-100" : "opacity-0")}>
