@@ -122,19 +122,20 @@ export default function Home() {
   const [docs, setDocs] = useState<Doc[]>(() => homeCache.get()?.docs ?? [])
   const [folders, setFolders] = useState<FolderItem[]>(() => homeCache.get()?.folders ?? [])
   const [userAvatar, setUserAvatar] = useState<string | undefined>(() => userCache.get()?.avatarUrl)
-  const [userName, setUserName] = useState("")
+  const [userName, setUserName] = useState(() => userCache.get()?.name ?? "")
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState("")
   const [commandOpen, setCommandOpen] = useState(false)
   const [fadingOut, setFadingOut] = useState(false)
-  const [mounted, setMounted] = useState(false)
+  const [revealed, setReveal] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [searching, setSearching] = useState(false)
   const [loading, setLoading] = useState(() => homeCache.get() === null)
 
   useEffect(() => { load() }, [])
-  useEffect(() => { requestAnimationFrame(() => setMounted(true)) }, [])
+  // If cache exists, reveal immediately; otherwise reveal fires in load() after fetch
+  useEffect(() => { if (!loading) requestAnimationFrame(() => setReveal(true)) }, [])
 
   useEffect(() => {
     if (!searchQuery.trim()) { setSearchResults([]); setSearching(false); return }
@@ -189,6 +190,7 @@ export default function Home() {
     setDocs(docs)
     setFolders(folders)
     setLoading(false)
+    setReveal(true)
   }
 
   async function createDoc(folderId: string | null = null) {
@@ -200,7 +202,11 @@ export default function Home() {
       .insert({ user_id: user.id, title: "", content: "", folder_id: folderId })
       .select()
       .single()
-    if (data) router.push(`/doc/${data.id}`)
+    if (data) {
+      setFadingOut(true)
+      await new Promise(r => setTimeout(r, 200))
+      router.push(`/doc/${data.id}`)
+    }
   }
 
   async function deleteDoc(id: string) {
@@ -395,11 +401,11 @@ export default function Home() {
       </CommandDialog>
 
       {/* Content */}
-      <main className={cn("flex-1 overflow-y-auto px-8 py-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden transition-opacity duration-200", fadingOut ? "opacity-0" : mounted ? "opacity-100" : "opacity-0")}>
+      <main className={cn("flex-1 overflow-y-auto px-8 py-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", fadingOut && "opacity-0 transition-opacity duration-200")}>
         <div className="max-w-[1240px] mx-auto">
 
           {/* Greeting */}
-          <div className="mb-8">
+          <div className="mb-8" style={revealed ? { animation: "page-enter 0.7s cubic-bezier(0.25, 1, 0.5, 1) 0ms both" } : { opacity: 0 }}>
             <p className="text-sm text-[#AAAAAA] dark:text-muted-foreground mb-0.5">{dateStr}</p>
             <h1 className="text-[26px] font-semibold tracking-[0.01em] text-foreground leading-8">
               Good {timeOfDay}{userName ? `, ${userName}` : ""}.
@@ -407,7 +413,7 @@ export default function Home() {
           </div>
 
           {/* Actions row */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-6" style={revealed ? { animation: "page-enter 0.7s cubic-bezier(0.25, 1, 0.5, 1) 140ms both" } : { opacity: 0 }}>
             <div className="flex items-center gap-2">
               <ActionButton onClick={() => createDoc()}>
                 New Page <Plus className="h-3 w-3 opacity-90" />
@@ -422,28 +428,22 @@ export default function Home() {
           </div>
 
           {/* Unfiled docs */}
-          {loading ? (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(185px,1fr))] gap-4 mb-10">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="border border-border overflow-hidden animate-pulse h-[184px]">
-                  <div className="bg-muted/40 h-full" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(185px,1fr))] gap-4 mb-10">
-              {unfiledDocs.map(doc => (
-                <DocCard key={doc.id} doc={doc} onClick={() => openDoc(doc.id)} onDelete={() => deleteDoc(doc.id)} />
-              ))}
-              <NewDocCard label="New page" onClick={() => createDoc()} />
-            </div>
-          )}
+          <div style={revealed ? { animation: "page-enter 0.7s cubic-bezier(0.25, 1, 0.5, 1) 280ms both" } : { opacity: 0 }}>
+            {loading ? null : (
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(185px,1fr))] gap-4 mb-10">
+                {unfiledDocs.map(doc => (
+                  <DocCard key={doc.id} doc={doc} onClick={() => openDoc(doc.id)} onDelete={() => deleteDoc(doc.id)} />
+                ))}
+                <NewDocCard label="New page" onClick={() => createDoc()} />
+              </div>
+            )}
+          </div>
 
           {/* Folder sections */}
-          {!loading && folders.map(folder => {
+          {!loading && folders.map((folder, fi) => {
             const folderDocs = docs.filter(d => d.folder_id === folder.id)
             return (
-              <div key={folder.id} className="mb-10">
+              <div key={folder.id} className="mb-10" style={revealed ? { animation: `page-enter 0.7s cubic-bezier(0.25, 1, 0.5, 1) ${420 + fi * 140}ms both` } : { opacity: 0 }}>
                 <div className="flex items-center gap-2 mb-3.5">
                   <Folder className="h-3.5 w-3.5 text-[#888888] dark:text-muted-foreground shrink-0" />
                   {renamingFolderId === folder.id ? (
