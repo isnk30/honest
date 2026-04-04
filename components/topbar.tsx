@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronRight, Star, MoreHorizontal, Search, User, Trash2, MoveRight, FilePlusCorner, File } from "lucide-react"
+import { ChevronRight, Pin, MoreHorizontal, Search, User, Trash2, MoveRight, FilePlusCorner, File } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   CommandDialog,
@@ -46,11 +46,12 @@ interface TopbarProps {
   onHomeClick?: () => void
   onNewPage?: () => void
   onMoveToFolder?: () => void
+  pinned?: boolean
+  onPinToggle?: () => void
 }
 
-export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFolderClick, onDelete, onHomeClick, onNewPage, onMoveToFolder }: TopbarProps) {
+export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFolderClick, onDelete, onHomeClick, onNewPage, onMoveToFolder, pinned = false, onPinToggle }: TopbarProps) {
   const router = useRouter()
-  const [starred, setStarred] = useState(false)
   const [bursting, setBursting] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
@@ -191,18 +192,18 @@ export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFol
             </button>
           )}
 
-          {/* Star / favorite */}
+          {/* Pin / favorite */}
           <div className="relative flex h-6 w-6 shrink-0 items-center justify-center">
             <style>{`
               @keyframes burst-out {
                 0%   { transform: translate(-50%, -50%) rotate(var(--a)) translateY(0px)   scale(1); opacity: 1; }
                 100% { transform: translate(-50%, -50%) rotate(var(--a)) translateY(-20px) scale(0); opacity: 0; }
               }
-              @keyframes star-pop {
-                0%   { transform: scale(1) rotate(0deg); }
-                40%  { transform: scale(1.25) rotate(200deg); }
-                70%  { transform: scale(0.95) rotate(340deg); }
-                100% { transform: scale(1) rotate(360deg); }
+              @keyframes pin-pop {
+                0%   { transform: scale(1); }
+                40%  { transform: scale(1.15); }
+                70%  { transform: scale(0.95); }
+                100% { transform: scale(1); }
               }
             `}</style>
             {bursting && [0, 45, 90, 135, 180, 225, 270, 315].map((angle) => (
@@ -212,33 +213,32 @@ export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFol
                   position: "absolute",
                   top: "50%",
                   left: "50%",
-                  width: 5,
-                  height: 5,
+                  width: 4,
+                  height: 4,
                   borderRadius: "50%",
-                  background: "#fbbf24",
+                  background: "#f43f5e",
                   ["--a" as string]: `${angle}deg`,
-                  animation: "burst-out 0.45s ease-out forwards",
+                  animation: "burst-out 0.3s ease-out forwards",
                   pointerEvents: "none",
                 }}
               />
             ))}
             <button
-              aria-label={starred ? "Remove from favorites" : "Add to favorites"}
+              aria-label={pinned ? "Unpin" : "Pin"}
               onClick={() => {
-                const next = !starred
-                setStarred(next)
-                if (next) {
+                if (!pinned) {
                   setBursting(true)
-                  setTimeout(() => setBursting(false), 450)
+                  setTimeout(() => setBursting(false), 300)
                 }
+                onPinToggle?.()
               }}
               className="flex h-6 w-6 items-center justify-center transition-colors hover:bg-muted active:scale-95"
             >
-              <Star
-                style={bursting ? { animation: "star-pop 0.35s ease-out forwards" } : undefined}
+              <Pin
+                style={bursting ? { animation: "pin-pop 0.25s ease-out forwards" } : undefined}
                 className={cn(
                   "h-3.5 w-3.5 transition-colors",
-                  starred ? "fill-amber-400 text-amber-400" : "text-muted-foreground",
+                  pinned ? "fill-rose-500 text-rose-500" : "text-muted-foreground",
                 )}
               />
             </button>
