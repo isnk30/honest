@@ -18,6 +18,10 @@ interface SidebarProps {
 
 const TIMER_PRESETS = [5, 10, 15, 20]
 
+function getHighlightColor() {
+  return document.documentElement.classList.contains("dark") ? "#1e3a8a" : "yellow"
+}
+
 export function Sidebar({ onInsertImage }: SidebarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const savedRangeRef = useRef<Range | null>(null)
@@ -97,7 +101,7 @@ export function Sidebar({ onInsertImage }: SidebarProps) {
     while (node && node !== document.body) {
       if (node.nodeType === Node.ELEMENT_NODE) {
         const bg = (node as HTMLElement).style.backgroundColor
-        if (bg === "yellow" || bg === "rgb(255, 255, 0)") return true
+        if (bg === "yellow" || bg === "rgb(255, 255, 0)" || bg === "rgb(30, 64, 175)") return true
       }
       node = node.parentNode
     }
@@ -189,7 +193,7 @@ export function Sidebar({ onInsertImage }: SidebarProps) {
     if (command === "hiliteColor") {
       const sel = window.getSelection()
       if (!sel || sel.rangeCount === 0) return
-      document.execCommand("hiliteColor", false, isHighlighted() ? "transparent" : "yellow")
+      document.execCommand("hiliteColor", false, isHighlighted() ? "transparent" : getHighlightColor())
     } else {
       document.execCommand(command, false, arg)
     }
