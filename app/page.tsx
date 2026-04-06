@@ -72,7 +72,7 @@ function DocCard({ doc, onClick, onDelete }: { doc: Doc; onClick: () => void; on
       <div className="flex flex-col gap-[5px]">
         <div className="flex items-center gap-1.5">
           <p className="text-[13px] font-medium text-foreground truncate leading-[18px]">{doc.title || "Untitled"}</p>
-          {doc.pinned && <Pin className="h-3 w-3 shrink-0 fill-rose-500 text-rose-500" />}
+          {doc.pinned && <Pin className="h-3 w-3 shrink-0 fill-sky-400 text-sky-400" />}
         </div>
         <div className="h-[5px] rounded-sm bg-[#E4E4E4] dark:bg-foreground/10 w-3/5" />
         <div className="h-[5px] rounded-sm bg-[#EEEEEE] dark:bg-foreground/8 w-full" />

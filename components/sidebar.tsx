@@ -18,9 +18,6 @@ interface SidebarProps {
 
 const TIMER_PRESETS = [5, 10, 15, 20]
 
-function getHighlightColor() {
-  return document.documentElement.classList.contains("dark") ? "#1e3a8a" : "yellow"
-}
 
 export function Sidebar({ onInsertImage }: SidebarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -100,8 +97,10 @@ export function Sidebar({ onInsertImage }: SidebarProps) {
     let node: Node | null = sel.anchorNode
     while (node && node !== document.body) {
       if (node.nodeType === Node.ELEMENT_NODE) {
-        const bg = (node as HTMLElement).style.backgroundColor
-        if (bg === "yellow" || bg === "rgb(255, 255, 0)" || bg === "rgb(30, 64, 175)") return true
+        const el = node as HTMLElement
+        if (el.classList.contains("text-highlight")) return true
+        const bg = el.style.backgroundColor
+        if (bg === "yellow" || bg === "rgb(255, 255, 0)" || bg === "rgb(30, 58, 138)" || bg === "rgb(30, 64, 175)") return true
       }
       node = node.parentNode
     }
@@ -188,12 +187,34 @@ export function Sidebar({ onInsertImage }: SidebarProps) {
     return m > 0 ? `${m}m` : `${s}s`
   }
 
+  function normalizeHighlights() {
+    document.querySelectorAll("[contenteditable] [style]").forEach((el) => {
+      const bg = (el as HTMLElement).style.backgroundColor
+      if (bg && bg !== "transparent" && bg !== "rgba(0, 0, 0, 0)") {
+        ;(el as HTMLElement).style.removeProperty("background-color")
+        el.classList.add("text-highlight")
+      }
+    })
+    document.querySelectorAll("[contenteditable] .text-highlight").forEach((el) => {
+      const bg = (el as HTMLElement).style.backgroundColor
+      if (bg === "transparent" || bg === "rgba(0, 0, 0, 0)") {
+        ;(el as HTMLElement).style.removeProperty("background-color")
+        el.classList.remove("text-highlight")
+      }
+    })
+  }
+
   function applyFormat(command: string, arg?: string) {
     if (selectionInTitle()) return
     if (command === "hiliteColor") {
       const sel = window.getSelection()
       if (!sel || sel.rangeCount === 0) return
-      document.execCommand("hiliteColor", false, isHighlighted() ? "transparent" : getHighlightColor())
+      if (isHighlighted()) {
+        document.execCommand("hiliteColor", false, "transparent")
+      } else {
+        document.execCommand("hiliteColor", false, "yellow")
+      }
+      normalizeHighlights()
     } else {
       document.execCommand(command, false, arg)
     }

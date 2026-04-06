@@ -138,11 +138,11 @@
     @apply border-border outline-ring/50;
   }
 
-  .dark [style*="background-color: yellow"],
-  .dark [style*="background-color:yellow"],
-  .dark [style*="background-color: rgb(255, 255, 0)"],
-  .dark [style*="background-color:rgb(255, 255, 0)"] {
-    background-color: #1e3a8a !important;
+  .text-highlight {
+    background-color: #bae6fd !important;
+  }
+  .dark .text-highlight {
+    background-color: #0c4a6e !important;
   }
   body {
     @apply bg-background text-foreground;

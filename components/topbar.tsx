@@ -218,7 +218,7 @@ export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFol
                   width: 4,
                   height: 4,
                   borderRadius: "50%",
-                  background: "#f43f5e",
+                  background: "#38bdf8",
                   ["--a" as string]: `${angle}deg`,
                   animation: "burst-out 0.3s ease-out forwards",
                   pointerEvents: "none",
@@ -240,7 +240,7 @@ export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFol
                 style={bursting ? { animation: "pin-pop 0.25s ease-out forwards" } : undefined}
                 className={cn(
                   "h-3.5 w-3.5 transition-colors",
-                  pinned ? "fill-rose-500 text-rose-500" : "text-muted-foreground",
+                  pinned ? "fill-sky-400 text-sky-400" : "text-muted-foreground",
                 )}
               />
             </button>
