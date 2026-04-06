@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronRight, Pin, MoreHorizontal, Search, User, Trash2, MoveRight, FilePlusCorner, File } from "lucide-react"
+import { ChevronRight, Pin, MoreHorizontal, Search, User, Trash2, MoveRight, FilePlusCorner, File, Sun, Moon } from "lucide-react"
+import { useThemeToggle } from "@/hooks/use-theme-toggle"
 import { Button } from "@/components/ui/button"
 import {
   CommandDialog,
@@ -52,6 +53,7 @@ interface TopbarProps {
 
 export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFolderClick, onDelete, onHomeClick, onNewPage, onMoveToFolder, pinned = false, onPinToggle }: TopbarProps) {
   const router = useRouter()
+  const { resolvedTheme, toggle: toggleTheme } = useThemeToggle()
   const [bursting, setBursting] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
@@ -284,12 +286,22 @@ export function Topbar({ docName, onDocNameChange, userAvatar, folderName, onFol
         </DropdownMenu>
 
         {/* Profile picture */}
-        <Avatar className="h-7 w-7 cursor-pointer transition-opacity hover:opacity-50">
-          <AvatarImage src={userAvatar ?? "/avatar.jpg"} alt="Profile picture" referrerPolicy="no-referrer" />
-          <AvatarFallback className="bg-muted text-xs font-medium text-muted-foreground">
-            <User className="h-3.5 w-3.5" />
-          </AvatarFallback>
-        </Avatar>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Avatar className="h-7 w-7 cursor-pointer transition-opacity hover:opacity-50">
+              <AvatarImage src={userAvatar ?? "/avatar.jpg"} alt="Profile picture" referrerPolicy="no-referrer" />
+              <AvatarFallback className="bg-muted text-xs font-medium text-muted-foreground">
+                <User className="h-3.5 w-3.5" />
+              </AvatarFallback>
+            </Avatar>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem onClick={toggleTheme}>
+              {resolvedTheme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+              Toggle appearance
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </header>
 
       {/* Command palette */}

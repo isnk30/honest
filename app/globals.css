@@ -137,6 +137,13 @@
   * {
     @apply border-border outline-ring/50;
   }
+
+  .dark [style*="background-color: yellow"],
+  .dark [style*="background-color:yellow"],
+  .dark [style*="background-color: rgb(255, 255, 0)"],
+  .dark [style*="background-color:rgb(255, 255, 0)"] {
+    background-color: #1e3a8a !important;
+  }
   body {
     @apply bg-background text-foreground;
   }

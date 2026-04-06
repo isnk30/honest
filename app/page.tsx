@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
+import { useThemeToggle } from "@/hooks/use-theme-toggle"
 import { createClient } from "@/lib/supabase/client"
 import { format, isToday, isYesterday } from "date-fns"
-import { Folder, Plus, User, Search, MoreHorizontal, Trash2, Pin } from "lucide-react"
+import { Folder, Plus, User, Search, MoreHorizontal, Trash2, Pin, Sun, Moon } from "lucide-react"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import {
   CommandDialog,
@@ -19,6 +20,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { FileText, File, FilePlusCorner } from "lucide-react"
@@ -123,6 +125,7 @@ function NewDocCard({ label, onClick }: { label: string; onClick: () => void }) 
 
 export default function Home() {
   const router = useRouter()
+  const { resolvedTheme, toggle: toggleTheme } = useThemeToggle()
   const [docs, setDocs] = useState<Doc[]>(() => homeCache.get()?.docs ?? [])
   const [folders, setFolders] = useState<FolderItem[]>(() => homeCache.get()?.folders ?? [])
   const [userAvatar, setUserAvatar] = useState<string | undefined>(() => userCache.get()?.avatarUrl)
@@ -317,7 +320,11 @@ export default function Home() {
               </AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-36">
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem onClick={toggleTheme}>
+              {resolvedTheme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+              Toggle appearance
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => router.push("/trash")}>
               Trash
             </DropdownMenuItem>
