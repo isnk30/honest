@@ -16,51 +16,53 @@ const IMAGE_STYLES = `
     display: block;
     max-width: 100%;
     height: auto;
-    border-radius: 6px;
+    border-radius: 0;
     outline: 2px solid transparent;
     outline-offset: 1px;
     transition: outline-color 0.15s ease, box-shadow 0.2s ease, transform 0.2s ease;
   }
   .img-wrapper:hover img,
   .img-wrapper.img-selected img {
-    outline-color: #ff598b;
+    outline-color: #0ea5e9;
+  }
+  .dark .img-wrapper:hover img,
+  .dark .img-wrapper.img-selected img {
+    outline-color: #38bdf8;
   }
   .img-wrapper.img-selected img {
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.08);
-    transform: translateY(-1px);
   }
   .img-handle {
     position: absolute;
     width: 14px;
     height: 14px;
     background: transparent;
-    border: 2.5px solid #ff598b;
+    border: 2.5px solid #0ea5e9;
     display: none;
     z-index: 10;
+  }
+  .dark .img-handle {
+    border-color: #38bdf8;
   }
   .img-wrapper.img-selected .img-handle { display: block; }
   .img-handle-nw {
     top: -8px; left: -8px;
     border-right: none; border-bottom: none;
-    border-top-left-radius: 14px;
     cursor: nw-resize;
   }
   .img-handle-ne {
     top: -8px; right: -8px;
     border-left: none; border-bottom: none;
-    border-top-right-radius: 14px;
     cursor: ne-resize;
   }
   .img-handle-se {
     bottom: -8px; right: -8px;
     border-left: none; border-top: none;
-    border-bottom-right-radius: 14px;
     cursor: se-resize;
   }
   .img-handle-sw {
     bottom: -8px; left: -8px;
     border-right: none; border-top: none;
-    border-bottom-left-radius: 14px;
     cursor: sw-resize;
   }
   .img-handle-n  { top: -4px;             left: calc(50% - 4px); cursor: n-resize; }
@@ -110,6 +112,16 @@ interface LinkTooltipState {
   editMode: boolean
   editUrl: string
   editText: string
+}
+
+function normalizeHighlights(container: HTMLElement) {
+  container.querySelectorAll("[style]").forEach((el) => {
+    const bg = (el as HTMLElement).style.backgroundColor
+    if (bg && bg !== "transparent" && bg !== "rgba(0, 0, 0, 0)") {
+      ;(el as HTMLElement).style.removeProperty("background-color")
+      el.classList.add("text-highlight")
+    }
+  })
 }
 
 export const DocumentEditor = memo(forwardRef<DocumentEditorHandle, DocumentEditorProps>(
@@ -182,6 +194,7 @@ export const DocumentEditor = memo(forwardRef<DocumentEditorHandle, DocumentEdit
       setContent(html: string) {
         if (!bodyRef.current) return
         bodyRef.current.innerHTML = html
+        normalizeHighlights(bodyRef.current)
         const trimmed = html.trim()
         setBody(trimmed === "" || trimmed === "<br>" ? "" : "_")
       },
@@ -270,7 +283,8 @@ export const DocumentEditor = memo(forwardRef<DocumentEditorHandle, DocumentEdit
         const wrapper = target.closest(".img-wrapper")
         if (wrapper) {
           wrapper.classList.add("img-selected")
-          editor.focus()
+          window.getSelection()?.removeAllRanges()
+          editor.blur()
         }
       }
       editor.addEventListener("click", onEditorClick)
