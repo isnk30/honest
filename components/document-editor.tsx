@@ -10,6 +10,7 @@ import {
   insertImage as pmInsertImage,
   isMarkActive,
   getLinkAtSelection,
+  ImageNodeView,
 } from "@/lib/prosemirror"
 import { ExternalLink, Pencil, Unlink } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
@@ -119,6 +120,9 @@ export const DocumentEditor = memo(forwardRef<DocumentEditorHandle, DocumentEdit
       const view = new EditorView(editorContainerRef.current, {
         state,
         attributes: { class: "outline-none" },
+        nodeViews: {
+          image: (node, view, getPos) => new ImageNodeView(node, view, getPos),
+        },
         handleClickOn(view, pos, node, nodePos, event, direct) {
           // Handle link clicks
           const resolved = view.state.doc.resolve(pos)

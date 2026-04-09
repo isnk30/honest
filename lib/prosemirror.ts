@@ -323,6 +323,109 @@ export function insertImage(view: EditorView, src: string) {
   view.focus()
 }
 
+// ── Image NodeView (resizable) ───────────────────────────────────────────
+
+export class ImageNodeView {
+  dom: HTMLElement
+  private img: HTMLImageElement
+  private handles: HTMLElement[] = []
+  private selected = false
+
+  constructor(
+    private node: PmNode,
+    private view: EditorView,
+    private getPos: () => number | undefined,
+  ) {
+    // Outer wrapper
+    const wrapper = document.createElement("span")
+    wrapper.className = "img-wrapper"
+    wrapper.setAttribute("contenteditable", "false")
+
+    // Image
+    const img = document.createElement("img")
+    img.src = node.attrs.src
+    img.style.width = node.attrs.width ?? "400px"
+    img.draggable = false
+    wrapper.appendChild(img)
+    this.img = img
+
+    // Resize handles (corners only)
+    for (const pos of ["nw", "ne", "se", "sw"]) {
+      const handle = document.createElement("span")
+      handle.className = `img-handle img-handle-${pos}`
+      handle.dataset.handle = pos
+      handle.addEventListener("mousedown", (e) => this.onHandleMouseDown(e, pos))
+      wrapper.appendChild(handle)
+      this.handles.push(handle)
+    }
+
+    this.dom = wrapper
+  }
+
+  private onHandleMouseDown(e: MouseEvent, handlePos: string) {
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.clientX
+    const startWidth = this.img.offsetWidth
+
+    const onMove = (e: MouseEvent) => {
+      const dx = e.clientX - startX
+      const isLeft = handlePos.includes("w")
+      const newWidth = Math.max(80, isLeft ? startWidth - dx : startWidth + dx)
+      this.img.style.width = `${newWidth}px`
+    }
+
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove)
+      document.removeEventListener("mouseup", onUp)
+      // Persist the new width into the node attrs
+      const pos = this.getPos()
+      if (pos === undefined) return
+      const width = this.img.style.width
+      this.view.dispatch(
+        this.view.state.tr.setNodeMarkup(pos, undefined, {
+          ...this.node.attrs,
+          width,
+        })
+      )
+    }
+
+    document.addEventListener("mousemove", onMove)
+    document.addEventListener("mouseup", onUp)
+  }
+
+  selectNode() {
+    this.selected = true
+    this.dom.classList.add("img-selected")
+  }
+
+  deselectNode() {
+    this.selected = false
+    this.dom.classList.remove("img-selected")
+  }
+
+  update(node: PmNode) {
+    if (node.type !== this.node.type) return false
+    this.node = node
+    this.img.src = node.attrs.src
+    if (node.attrs.width) this.img.style.width = node.attrs.width
+    return true
+  }
+
+  stopEvent(event: Event) {
+    // Allow mousedown on handles through
+    return (event.target as HTMLElement).classList.contains("img-handle")
+  }
+
+  ignoreMutation() {
+    return true
+  }
+
+  destroy() {
+    this.handles.forEach((h) => h.replaceWith(h.cloneNode(true)))
+  }
+}
+
 export function getLinkAtSelection(state: EditorState): { href: string; from: number; to: number } | null {
   const { from, to } = state.selection
   let found: { href: string; from: number; to: number } | null = null

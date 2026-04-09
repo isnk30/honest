@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { AnimatePresence } from "motion/react"
 import { docCache } from "@/lib/doc-cache"
+import { FloatingToolbar } from "@/components/floating-toolbar"
 import { userCache } from "@/lib/user-cache"
 import { cn } from "@/lib/utils"
 
@@ -180,6 +181,7 @@ export default function DocPage() {
 
         <div className="relative flex flex-1 overflow-hidden">
           <Sidebar onInsertImage={(src) => editorRef.current?.insertImage(src)} editorView={editorView} />
+          <FloatingToolbar editorView={editorView} />
           <main className="flex flex-1 justify-center overflow-y-auto px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <DocumentEditor
               ref={editorRef}
