@@ -75,9 +75,14 @@ export default function DocPage() {
 
   const saveNow = useCallback(async (title: string, content: string, silent = false) => {
     const supabase = createClient()
+    // Try to parse JSON content — if the column is jsonb, Supabase needs an object, not a string
+    let contentValue: string | Record<string, unknown> = content
+    if (content.trim().startsWith("{")) {
+      try { contentValue = JSON.parse(content) } catch { /* keep as string */ }
+    }
     const { error } = await supabase
       .from("documents")
-      .update({ title, content, updated_at: new Date().toISOString() })
+      .update({ title, content: contentValue, updated_at: new Date().toISOString() })
       .eq("id", docId)
     if (!silent) {
       if (error) toast.error("Failed to save")
