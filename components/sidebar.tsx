@@ -4,85 +4,32 @@ import { useRef, useState, useEffect, useCallback } from "react"
 import { Bold, Italic, Underline, Highlighter, ImageIcon, Link, Timer, Play, Pause, RotateCcw, X } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 import { cn } from "@/lib/utils"
-
-const formatTools = [
-  { icon: Bold,        label: "Bold",      command: "bold",        arg: undefined },
-  { icon: Italic,      label: "Italic",    command: "italic",      arg: undefined },
-  { icon: Underline,   label: "Underline", command: "underline",   arg: undefined },
-  { icon: Highlighter, label: "Highlight", command: "hiliteColor", arg: "yellow"  },
-]
+import type { EditorView } from "prosemirror-view"
+import {
+  schema,
+  isMarkActive,
+  toggleMarkCommand,
+  toggleHighlight,
+  applyLink,
+  removeLink,
+  getLinkAtSelection,
+} from "@/lib/prosemirror"
 
 interface SidebarProps {
-  onInsertImage: (src: string, savedRange: Range | null) => void
+  onInsertImage: (src: string) => void
+  editorView: EditorView | null
 }
 
 const TIMER_PRESETS = [5, 10, 15, 20]
 
-
-export function Sidebar({ onInsertImage }: SidebarProps) {
+export function Sidebar({ onInsertImage, editorView }: SidebarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const savedRangeRef = useRef<Range | null>(null)
   const [activeFormats, setActiveFormats] = useState<Record<string, boolean>>({})
 
   // Link state
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkUrl, setLinkUrl] = useState("")
   const linkInputRef = useRef<HTMLInputElement>(null)
-  const savedLinkRangeRef = useRef<Range | null>(null)
-
-  function getLinkAtCursor(): HTMLAnchorElement | null {
-    const sel = window.getSelection()
-    if (!sel || sel.rangeCount === 0) return null
-    let node: Node | null = sel.anchorNode
-    while (node && node !== document.body) {
-      if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "A") {
-        return node as HTMLAnchorElement
-      }
-      node = node.parentNode
-    }
-    return null
-  }
-
-  function openLinkPopover() {
-    setTimerOpen(false)
-    const sel = window.getSelection()
-    if (sel && sel.rangeCount > 0) {
-      savedLinkRangeRef.current = sel.getRangeAt(0).cloneRange()
-    }
-    const existing = getLinkAtCursor()
-    setLinkUrl(existing ? (existing.getAttribute("href") ?? "") : "")
-    setLinkOpen(true)
-    setTimeout(() => linkInputRef.current?.focus(), 50)
-  }
-
-  function applyLink() {
-    const raw = linkUrl.trim()
-    if (!raw) return
-    const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
-    const sel = window.getSelection()
-    if (sel && savedLinkRangeRef.current) {
-      sel.removeAllRanges()
-      sel.addRange(savedLinkRangeRef.current)
-    }
-    document.execCommand("createLink", false, url)
-    document.querySelectorAll("a[href]").forEach((a) => {
-      ;(a as HTMLAnchorElement).target = "_blank"
-      ;(a as HTMLAnchorElement).rel = "noopener noreferrer"
-    })
-    setLinkOpen(false)
-    setLinkUrl("")
-  }
-
-  function removeLink() {
-    const sel = window.getSelection()
-    if (sel && savedLinkRangeRef.current) {
-      sel.removeAllRanges()
-      sel.addRange(savedLinkRangeRef.current)
-    }
-    document.execCommand("unlink", false)
-    setLinkOpen(false)
-    setLinkUrl("")
-  }
 
   // Timer state
   const [timerOpen, setTimerOpen] = useState(false)
@@ -90,22 +37,6 @@ export function Sidebar({ onInsertImage }: SidebarProps) {
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
   const [running, setRunning] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  function isHighlighted(): boolean {
-    const sel = window.getSelection()
-    if (!sel || sel.rangeCount === 0) return false
-    let node: Node | null = sel.anchorNode
-    while (node && node !== document.body) {
-      if (node.nodeType === Node.ELEMENT_NODE) {
-        const el = node as HTMLElement
-        if (el.classList.contains("text-highlight")) return true
-        const bg = el.style.backgroundColor
-        if (bg === "yellow" || bg === "rgb(255, 255, 0)" || bg === "rgb(30, 58, 138)" || bg === "rgb(30, 64, 175)") return true
-      }
-      node = node.parentNode
-    }
-    return false
-  }
 
   function selectionInTitle(): boolean {
     const sel = window.getSelection()
@@ -119,28 +50,92 @@ export function Sidebar({ onInsertImage }: SidebarProps) {
   }
 
   const checkActiveFormats = useCallback(() => {
-    const active = document.activeElement
-    if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
+    if (!editorView || selectionInTitle()) {
       setActiveFormats({})
       return
     }
-    const sel = window.getSelection()
-    if (!sel || sel.rangeCount === 0 || selectionInTitle()) {
-      setActiveFormats({})
-      return
-    }
+    const state = editorView.state
     setActiveFormats({
-      bold: document.queryCommandState("bold"),
-      italic: document.queryCommandState("italic"),
-      underline: document.queryCommandState("underline"),
-      hiliteColor: isHighlighted(),
+      bold: isMarkActive(state, schema.marks.bold),
+      italic: isMarkActive(state, schema.marks.italic),
+      underline: isMarkActive(state, schema.marks.underline),
+      highlight: isMarkActive(state, schema.marks.highlight),
     })
-  }, [])
+  }, [editorView])
 
+  // Poll active formats on selection/transaction changes
   useEffect(() => {
     document.addEventListener("selectionchange", checkActiveFormats)
     return () => document.removeEventListener("selectionchange", checkActiveFormats)
   }, [checkActiveFormats])
+
+  // Also check when editorView changes (transactions)
+  useEffect(() => {
+    if (!editorView) return
+    const interval = setInterval(checkActiveFormats, 200)
+    return () => clearInterval(interval)
+  }, [editorView, checkActiveFormats])
+
+  function openLinkPopover() {
+    setTimerOpen(false)
+    if (!editorView) return
+    const existing = getLinkAtSelection(editorView.state)
+    setLinkUrl(existing ? existing.href : "")
+    setLinkOpen(true)
+    setTimeout(() => linkInputRef.current?.focus(), 50)
+  }
+
+  function handleApplyLink() {
+    const raw = linkUrl.trim()
+    if (!raw || !editorView) return
+    applyLink(editorView, raw)
+    setLinkOpen(false)
+    setLinkUrl("")
+  }
+
+  function handleRemoveLink() {
+    if (!editorView) return
+    removeLink(editorView)
+    setLinkOpen(false)
+    setLinkUrl("")
+  }
+
+  function applyFormat(format: string) {
+    if (!editorView || selectionInTitle()) return
+    switch (format) {
+      case "bold":
+        toggleMarkCommand(editorView, schema.marks.bold)
+        break
+      case "italic":
+        toggleMarkCommand(editorView, schema.marks.italic)
+        break
+      case "underline":
+        toggleMarkCommand(editorView, schema.marks.underline)
+        break
+      case "highlight":
+        toggleHighlight(editorView)
+        break
+    }
+    checkActiveFormats()
+  }
+
+  const formatTools = [
+    { icon: Bold,        label: "Bold",      format: "bold" },
+    { icon: Italic,      label: "Italic",    format: "italic" },
+    { icon: Underline,   label: "Underline", format: "underline" },
+    { icon: Highlighter, label: "Highlight", format: "highlight" },
+  ]
+
+  function handleImageInsert(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      onInsertImage(ev.target?.result as string)
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ""
+  }
 
   useEffect(() => {
     if (!running) {
@@ -187,65 +182,19 @@ export function Sidebar({ onInsertImage }: SidebarProps) {
     return m > 0 ? `${m}m` : `${s}s`
   }
 
-  function normalizeHighlights() {
-    document.querySelectorAll("[contenteditable] [style]").forEach((el) => {
-      const bg = (el as HTMLElement).style.backgroundColor
-      if (bg && bg !== "transparent" && bg !== "rgba(0, 0, 0, 0)") {
-        ;(el as HTMLElement).style.removeProperty("background-color")
-        el.classList.add("text-highlight")
-      }
-    })
-    document.querySelectorAll("[contenteditable] .text-highlight").forEach((el) => {
-      const bg = (el as HTMLElement).style.backgroundColor
-      if (bg === "transparent" || bg === "rgba(0, 0, 0, 0)") {
-        ;(el as HTMLElement).style.removeProperty("background-color")
-        el.classList.remove("text-highlight")
-      }
-    })
-  }
-
-  function applyFormat(command: string, arg?: string) {
-    if (selectionInTitle()) return
-    if (command === "hiliteColor") {
-      const sel = window.getSelection()
-      if (!sel || sel.rangeCount === 0) return
-      if (isHighlighted()) {
-        document.execCommand("hiliteColor", false, "transparent")
-      } else {
-        document.execCommand("hiliteColor", false, "yellow")
-      }
-      normalizeHighlights()
-    } else {
-      document.execCommand(command, false, arg)
-    }
-    checkActiveFormats()
-  }
-
-  function handleImageInsert(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      onInsertImage(ev.target?.result as string, savedRangeRef.current)
-      savedRangeRef.current = null
-    }
-    reader.readAsDataURL(file)
-    e.target.value = ""
-  }
-
   const btnClass = "flex h-8 w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-95"
 
   return (
     <aside className="fixed left-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1 border border-border bg-background p-0.5 shadow-md animate-in zoom-in-75 fade-in duration-200 delay-150 origin-left fill-mode-both">
-      {formatTools.map(({ icon: Icon, label, command, arg }) => {
-        const isActive = activeFormats[command] ?? false
+      {formatTools.map(({ icon: Icon, label, format }) => {
+        const isActive = activeFormats[format] ?? false
         return (
           <button
             key={label}
             title={label}
             onMouseDown={(e) => {
               e.preventDefault()
-              applyFormat(command, arg)
+              applyFormat(format)
             }}
             className={cn(
               btnClass,
@@ -262,12 +211,6 @@ export function Sidebar({ onInsertImage }: SidebarProps) {
       {/* Image */}
       <button
         title="Insert image"
-        onMouseDown={() => {
-          const sel = window.getSelection()
-          if (sel && sel.rangeCount > 0) {
-            savedRangeRef.current = sel.getRangeAt(0).cloneRange()
-          }
-        }}
         onClick={() => fileInputRef.current?.click()}
         className={btnClass}
       >
@@ -317,7 +260,7 @@ export function Sidebar({ onInsertImage }: SidebarProps) {
                 value={linkUrl}
                 onChange={(e) => setLinkUrl(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") { e.preventDefault(); applyLink() }
+                  if (e.key === "Enter") { e.preventDefault(); handleApplyLink() }
                   if (e.key === "Escape") setLinkOpen(false)
                 }}
                 placeholder="https://"
@@ -325,14 +268,14 @@ export function Sidebar({ onInsertImage }: SidebarProps) {
               />
               <div className="flex gap-1.5">
                 <button
-                  onClick={applyLink}
+                  onClick={handleApplyLink}
                   className="flex-1 bg-foreground py-1.5 text-xs font-medium text-background hover:opacity-90 transition-opacity"
                 >
                   Apply
                 </button>
-                {getLinkAtCursor() && (
+                {editorView && getLinkAtSelection(editorView.state) && (
                   <button
-                    onClick={removeLink}
+                    onClick={handleRemoveLink}
                     className="flex-1 bg-muted py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                   >
                     Remove
@@ -406,7 +349,6 @@ export function Sidebar({ onInsertImage }: SidebarProps) {
                   transition={{ type: "spring", duration: 0.2, bounce: 0 }}
                   className="absolute inset-0 flex flex-col gap-2"
                 >
-                  {/* Preset options */}
                   <div className="grid grid-cols-4 gap-1">
                     {TIMER_PRESETS.map((m) => (
                       <button
@@ -424,7 +366,6 @@ export function Sidebar({ onInsertImage }: SidebarProps) {
                     ))}
                   </div>
 
-                  {/* Custom adjust */}
                   <div className="flex items-center justify-between gap-1">
                     <button
                       onClick={() => setTimerMinutes((m) => Math.max(1, m - 1))}
@@ -454,7 +395,6 @@ export function Sidebar({ onInsertImage }: SidebarProps) {
                     </button>
                   </div>
 
-                  {/* Start */}
                   <button
                     onClick={startTimer}
                     className="flex items-center justify-center gap-1.5 bg-foreground py-1.5 text-xs font-medium text-background hover:opacity-90 transition-opacity"
@@ -472,7 +412,6 @@ export function Sidebar({ onInsertImage }: SidebarProps) {
                   transition={{ type: "spring", duration: 0.2, bounce: 0 }}
                   className="absolute inset-0 flex flex-col gap-2"
                 >
-                  {/* Countdown display */}
                   <div className={cn(
                     "text-center text-xl font-bold tabular-nums",
                     secondsLeft === 0 && "text-red-500"
@@ -494,7 +433,6 @@ export function Sidebar({ onInsertImage }: SidebarProps) {
                     </button>
                   )}
 
-                  {/* Reset */}
                   <button
                     onClick={resetTimer}
                     className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"

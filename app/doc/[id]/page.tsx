@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { AnimatePresence } from "motion/react"
 import { docCache } from "@/lib/doc-cache"
+import { FloatingToolbar } from "@/components/floating-toolbar"
 import { userCache } from "@/lib/user-cache"
 import { cn } from "@/lib/utils"
 
@@ -29,6 +30,7 @@ export default function DocPage() {
   const editorRef = useRef<DocumentEditorHandle>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const docNameRef = useRef("")
+  const [editorView, setEditorView] = useState<import("prosemirror-view").EditorView | null>(null)
 
   useEffect(() => { docNameRef.current = docName }, [docName])
 
@@ -74,9 +76,14 @@ export default function DocPage() {
 
   const saveNow = useCallback(async (title: string, content: string, silent = false) => {
     const supabase = createClient()
+    // Try to parse JSON content — if the column is jsonb, Supabase needs an object, not a string
+    let contentValue: string | Record<string, unknown> = content
+    if (content.trim().startsWith("{")) {
+      try { contentValue = JSON.parse(content) } catch { /* keep as string */ }
+    }
     const { error } = await supabase
       .from("documents")
-      .update({ title, content, updated_at: new Date().toISOString() })
+      .update({ title, content: contentValue, updated_at: new Date().toISOString() })
       .eq("id", docId)
     if (!silent) {
       if (error) toast.error("Failed to save")
@@ -136,9 +143,18 @@ export default function DocPage() {
     scheduleAutoSave(name, editorRef.current?.getContent() ?? "")
   }, [scheduleAutoSave])
 
-  const handleContentChange = useCallback((html: string) => {
-    scheduleAutoSave(docNameRef.current, html)
+  const handleContentChange = useCallback((json: string) => {
+    scheduleAutoSave(docNameRef.current, json)
   }, [scheduleAutoSave])
+
+  // Expose editor view for sidebar
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const view = editorRef.current?.getView?.()
+      if (view && view !== editorView) setEditorView(view)
+    }, 100)
+    return () => clearInterval(interval)
+  }, [editorView])
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background font-sans">
@@ -164,7 +180,8 @@ export default function DocPage() {
         </AnimatePresence>
 
         <div className="relative flex flex-1 overflow-hidden">
-          <Sidebar onInsertImage={(src, range) => editorRef.current?.insertImage(src, range)} />
+          <Sidebar onInsertImage={(src) => editorRef.current?.insertImage(src)} editorView={editorView} />
+          <FloatingToolbar editorView={editorView} />
           <main className="flex flex-1 justify-center overflow-y-auto px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <DocumentEditor
               ref={editorRef}

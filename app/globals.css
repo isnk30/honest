@@ -152,4 +152,101 @@
     text-decoration-thickness: 1.3px;
     text-decoration-skip-ink: auto;
   }
+
+  /* ProseMirror base styles */
+  .ProseMirror {
+    @apply outline-none;
+  }
+  .ProseMirror p {
+    @apply my-1;
+  }
+  .ProseMirror h1 {
+    @apply text-2xl font-bold mt-6 mb-2;
+  }
+  .ProseMirror h2 {
+    @apply text-xl font-bold mt-5 mb-2;
+  }
+  .ProseMirror h3 {
+    @apply text-lg font-semibold mt-4 mb-1;
+  }
+  .ProseMirror blockquote {
+    @apply border-l-2 border-muted-foreground/30 pl-4 my-2 text-muted-foreground;
+  }
+  .ProseMirror ul {
+    @apply list-disc pl-6 my-2;
+  }
+  .ProseMirror ol {
+    @apply list-decimal pl-6 my-2;
+  }
+  .ProseMirror li {
+    @apply my-0.5;
+  }
+  .ProseMirror li > p {
+    @apply my-0;
+  }
+  .ProseMirror hr {
+    @apply border-border my-4;
+  }
+  .ProseMirror mark {
+    @apply rounded-sm px-0.5;
+    background-color: #bae6fd;
+    color: #0f172a;
+  }
+  .dark .ProseMirror mark {
+    background-color: #0c4a6e;
+    color: #e2e8f0;
+  }
+  .ProseMirror a {
+    @apply opacity-60 underline underline-offset-2 hover:opacity-90 transition-opacity cursor-pointer;
+    text-decoration-thickness: 1.3px;
+    text-decoration-skip-ink: auto;
+  }
+  .ProseMirror img {
+    @apply inline max-w-full h-auto;
+  }
+
+  /* Image NodeView */
+  .img-wrapper {
+    display: inline-block;
+    position: relative;
+    line-height: 0;
+    cursor: default;
+    margin: 2px 8px 2px 0;
+  }
+  .img-wrapper img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    outline: 2px solid transparent;
+    outline-offset: 1px;
+    transition: outline-color 0.15s ease, box-shadow 0.2s ease;
+  }
+  .img-wrapper:hover img,
+  .img-wrapper.img-selected img {
+    outline-color: #0ea5e9;
+  }
+  .dark .img-wrapper:hover img,
+  .dark .img-wrapper.img-selected img {
+    outline-color: #38bdf8;
+  }
+  .img-wrapper.img-selected img {
+    box-shadow: 0 8px 30px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .img-handle {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: transparent;
+    border: 2.5px solid #0ea5e9;
+    display: none;
+    z-index: 10;
+  }
+  .dark .img-handle {
+    border-color: #38bdf8;
+  }
+  .img-wrapper.img-selected .img-handle { display: block; }
+  .img-handle-nw { top: -8px; left: -8px; border-right: none; border-bottom: none; cursor: nw-resize; }
+  .img-handle-ne { top: -8px; right: -8px; border-left: none; border-bottom: none; cursor: ne-resize; }
+  .img-handle-se { bottom: -8px; right: -8px; border-left: none; border-top: none; cursor: se-resize; }
+  .img-handle-sw { bottom: -8px; left: -8px; border-right: none; border-top: none; cursor: sw-resize; }
 }
