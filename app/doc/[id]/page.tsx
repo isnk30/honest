@@ -29,6 +29,7 @@ export default function DocPage() {
   const editorRef = useRef<DocumentEditorHandle>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const docNameRef = useRef("")
+  const [editorView, setEditorView] = useState<import("prosemirror-view").EditorView | null>(null)
 
   useEffect(() => { docNameRef.current = docName }, [docName])
 
@@ -136,9 +137,18 @@ export default function DocPage() {
     scheduleAutoSave(name, editorRef.current?.getContent() ?? "")
   }, [scheduleAutoSave])
 
-  const handleContentChange = useCallback((html: string) => {
-    scheduleAutoSave(docNameRef.current, html)
+  const handleContentChange = useCallback((json: string) => {
+    scheduleAutoSave(docNameRef.current, json)
   }, [scheduleAutoSave])
+
+  // Expose editor view for sidebar
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const view = editorRef.current?.getView?.()
+      if (view && view !== editorView) setEditorView(view)
+    }, 100)
+    return () => clearInterval(interval)
+  }, [editorView])
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background font-sans">
@@ -164,7 +174,7 @@ export default function DocPage() {
         </AnimatePresence>
 
         <div className="relative flex flex-1 overflow-hidden">
-          <Sidebar onInsertImage={(src, range) => editorRef.current?.insertImage(src, range)} />
+          <Sidebar onInsertImage={(src) => editorRef.current?.insertImage(src)} editorView={editorView} />
           <main className="flex flex-1 justify-center overflow-y-auto px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <DocumentEditor
               ref={editorRef}

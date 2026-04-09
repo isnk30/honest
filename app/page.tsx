@@ -41,8 +41,25 @@ type Doc = {
 
 type SearchResult = Doc & { content: string }
 
+function extractPlainText(content: string): string {
+  const trimmed = content.trim()
+  if (trimmed.startsWith("{")) {
+    try {
+      const doc = JSON.parse(trimmed)
+      const texts: string[] = []
+      function walk(node: Record<string, unknown>) {
+        if (node.text) texts.push(node.text as string)
+        if (Array.isArray(node.content)) (node.content as Record<string, unknown>[]).forEach(walk)
+      }
+      walk(doc)
+      return texts.join(" ")
+    } catch { /* fall through to HTML stripping */ }
+  }
+  return content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+}
+
 function getSnippet(content: string, query: string): string | null {
-  const plain = content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+  const plain = extractPlainText(content)
   const idx = plain.toLowerCase().indexOf(query.toLowerCase())
   if (idx === -1) return null
   const start = Math.max(0, idx - 15)

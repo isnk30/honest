@@ -152,4 +152,57 @@
     text-decoration-thickness: 1.3px;
     text-decoration-skip-ink: auto;
   }
+
+  /* ProseMirror base styles */
+  .ProseMirror {
+    @apply outline-none;
+  }
+  .ProseMirror p {
+    @apply my-1;
+  }
+  .ProseMirror h1 {
+    @apply text-2xl font-bold mt-6 mb-2;
+  }
+  .ProseMirror h2 {
+    @apply text-xl font-bold mt-5 mb-2;
+  }
+  .ProseMirror h3 {
+    @apply text-lg font-semibold mt-4 mb-1;
+  }
+  .ProseMirror blockquote {
+    @apply border-l-2 border-muted-foreground/30 pl-4 my-2 text-muted-foreground;
+  }
+  .ProseMirror ul {
+    @apply list-disc pl-6 my-2;
+  }
+  .ProseMirror ol {
+    @apply list-decimal pl-6 my-2;
+  }
+  .ProseMirror li {
+    @apply my-0.5;
+  }
+  .ProseMirror li > p {
+    @apply my-0;
+  }
+  .ProseMirror hr {
+    @apply border-border my-4;
+  }
+  .ProseMirror mark {
+    @apply rounded-sm px-0.5;
+    background-color: #bae6fd;
+  }
+  .dark .ProseMirror mark {
+    background-color: #0c4a6e;
+  }
+  .ProseMirror a {
+    @apply opacity-60 underline underline-offset-2 hover:opacity-90 transition-opacity cursor-pointer;
+    text-decoration-thickness: 1.3px;
+    text-decoration-skip-ink: auto;
+  }
+  .ProseMirror img {
+    @apply inline max-w-full h-auto;
+  }
+  .ProseMirror img.ProseMirror-selectednode {
+    @apply outline-2 outline-sky-500 outline-offset-1;
+  }
 }
